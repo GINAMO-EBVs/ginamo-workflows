@@ -1,2 +1,5 @@
-# ginamo-workflows
-This repository contains the tools needed for the workflows created as part of the GINAMO project. It includes the associated scripts and their descriptions. It also describes the workflows created in Galaxy Ecology. The aim is to ensure reproducibility and traceability.
+# GINAMO : Galaxy tools and workflow
+This repository contains the different sources code of Galaxy Tools required for estimating the genetic indicator defined by the CBD.
+
+The workflows are available on Galaxy Platform : https://ecology.usegalaxy.eu/
+(*add description and link*)
