@@ -1,0 +1,286 @@
+<tool id="snpdivstats" name="SNP summary statistics" version="0.1.0">
+    <description>
+        estimate He, Hobs, Fis and allelic richness.
+    </description>
+
+    <requirements>
+        <requirement type="package" version="1.1.4">r-dplyr</requirement>
+        <requirement type="package" version="1.7.23">r-ade4</requirement>
+        <requirement type="package" version="1.15.0">r-vcfr</requirement>
+        <requirement type="package" version="2.1.11">r-adegenet</requirement>
+        <requirement type="package" version="4.3.1">r-base</requirement>
+        <requirement type="package" version="0.5.11">r-hierfstat</requirement>
+        <requirement type="package" version="1.3.3">r-mmod</requirement>
+    </requirements>
+
+    <command detect_errors="exit_code"><![CDATA[
+    mkdir -p summary_file &&
+    mkdir -p matrices_output &&
+
+    Rscript '$__tool_directory__/summ_div_stats.R'
+            '$data_conditional.marker_type'
+            '$data_conditional.input_data'
+            '$data_conditional.input_data.element_identifier'
+            #if $data_conditional.marker_type == "snp":
+                '$data_conditional.indpop'
+            #end if
+        ]]></command>
+
+    <inputs>
+        <conditional name="data_conditional">
+        <param name="marker_type" type="select" label="Select your data format">
+            <option value="snp" selected="true">SNP</option>
+            <option value="ssr">SSR</option>
+        </param>
+        
+        <when value="snp">
+            <param name="input_data" type="data" format="vcf" label="Upload your VCF file"
+                help="File containing SNP data in VCF format. You can upload a simple file, multiple file or a dataset collection"/>
+            <param name="indpop" type="data" format="tabular,txt" label="Upload your population file"
+                help="File containing individuals in the first column and their population in the second, separated by a tabulation character."/>
+        </when>
+        
+        <when value="ssr">
+            <param name="input_data" type="data" format="tabular,txt" label="Upload your SSR data file"
+                help="File containing SSR/microsatellite data in tabular format."/>
+        </when>
+    </conditional>
+        
+    </inputs>
+
+    <outputs>
+        <data name="summary_div_stats" from_work_dir="summary_file/summary_div_stats.txt" format="tabular" label="Summary diversity statistics"/>
+        <collection name="pairwise_matrices" type="list" label="Pairwise matrices">
+            <discover_datasets pattern="(?P&lt;designation&gt;.+)\.txt" format="tabular" directory="matrices_output"/>
+        </collection>
+    </outputs>
+
+    <tests>
+    <!-- Test 1: SNP analysis with single VCF file -->
+    <test expect_num_outputs="2">
+        <conditional name="data_conditional">
+            <param name="marker_type" value="snp"/>
+            <param name="input_data" value="test_vcf.vcf" ftype="vcf"/>
+            <param name="indpop" value="test_indpop.txt" ftype="txt"/>
+        </conditional>
+        <output name="summary_div_stats" file="summary_file/summary_div_stats.txt"/>
+        <output_collection name="pairwise_matrices" type="list">
+            <element name="test_snp_fst_matrix" file="matrices_output/test_vcf_fst_matrix.txt" ftype="tabular"/>
+            <element name="test_snp_gst_pr_nei_matrix" file="matrices_output/test_vcf_gst_matrix.txt" ftype="tabular"/>
+            <element name="test_snp_jost_D_matrix" file="matrices_output/test_vcf_jost_matrix.txt" ftype="tabular"/>
+        </output_collection>
+    </test>
+
+    <!-- Test 2: SSR analysis with single txt file -->
+    <test expect_num_outputs="2">
+        <conditional name="data_conditional">
+            <param name="marker_type" value="ssr"/>
+            <param name="input_data" value="test_SSR.txt" ftype="txt"/>
+        </conditional>
+        <output name="summary_div_stats" file="summary_file/summary_div_stats.txt"/>
+        <output_collection name="pairwise_matrices" type="list">
+            <element name="test_snp_fst_matrix" file="matrices_output/test_vcf_fst_matrix.txt"/>
+            <element name="test_snp_gst_pr_nei_matrix" file="matrices_output/test_vcf_gst_matrix.txt"/>
+            <element name="test_snp_jost_D_matrix" file="matrices_output/test_vcf_jost_matrix.txt"/>
+        </output_collection>
+    </test>
+</tests>
+
+<help><![CDATA[
+Usage
+=====
+
+As input, the user provides genetic data depending on the marker type selected. For SNPs, one or more VCF files (Danecek *et al.* 2011) and a population file (see format below). For SSRs, one or more tabular files containing genotypes and population information (see format below).
+
+This tool computes standard genetic diversity statistics and differentiation indicies using several R packages (adegenet, hierfstat and mmod). It calculates observed and expected heterozygosity (Hobs, Hexp), allelic richness (Ar), and inbreeding coefficient (Fis) (Weir & Cockerham 1984). It also performs pairwise population comparisons to provide Fst (Weir & Cockerham 1984), Gst (Nei 1973) and Jost's D statistics (Jost 2008).
+
+The tool generate a summary table with results per population, the average across populations (mean) and the results for all individuals pooled (tot). Additionnally, it outputs the full pairwise diferentiation matrices in a dataset collection.
+
+Examples files
+==============
+**Population file (tab):**
+
+::
+
+    ind1    pop1
+    ind2    pop2
+    ind3    pop2
+    ind4    pop1
+
+
+**SSR Genotype file (tab):**
+
+::
+
+    Ind     Pop     Loc1    Loc2    Loc3
+    ind1    pop1    120/124 200/202 150/150
+    ind2    pop1    120/120 202/204 150/152
+    ind3    pop2    124/126 200/200 152/152
+
+
+**Summary output table:**
+
++----------+------+-------------+-------+-------+-------+------+-------+----------+--------------+-------------+
+| Dataset  | Pop  | Marker_type | n_ind | Hobs  | Hexp  | Ar   | Fis   | mean_Fst | mean_Gst_Nei | mean_Jost_D |
++==========+======+=============+=======+=======+=======+======+=======+==========+==============+=============+
+| MyStudy  | Pop1 | SNP         | 25    | 0.320 | 0.345 | 1.85 | 0.072 | 0.045    | 0.038        | 0.012       |
++----------+------+-------------+-------+-------+-------+------+-------+----------+--------------+-------------+
+| MyStudy  | Pop2 | SNP         | 30    | 0.310 | 0.330 | 1.78 | 0.060 | 0.048    | 0.041        | 0.015       |
++----------+------+-------------+-------+-------+-------+------+-------+----------+--------------+-------------+
+| MyStudy  | tot  | SNP         | 55    | 0.315 | 0.337 | 1.82 | 0.066 | NA       | NA           | NA          |
++----------+------+-------------+-------+-------+-------+------+-------+----------+--------------+-------------+
+| MyStudy  | mean | SNP         | 55    | 0.315 | 0.337 | 1.81 | 0.066 | 0.046    | 0.039        | 0.013       |
++----------+------+-------------+-------+-------+-------+------+-------+----------+--------------+-------------+
+
+**Pairwise matrix output (example for Fst):**
+
+::
+
+            pop1    pop2    pop3
+    pop1    0.000   0.045   0.062
+    pop2    0.045   0.000   0.038
+    pop3    0.062   0.038   0.000
+
+
+See also examples of VCF formats in :  https://samtools.github.io/hts-specs/VCFv4.5.pdf
+
+    ]]></help>
+    
+    <citations>
+        <citation type="bibtex">
+            @Manual{dplyr,
+  title        = {dplyr: A Grammar of Data Manipulation},
+  author       = {Hadley Wickham and Romain François and Lionel Henry and Kirill Müller and Davis Vaughan and Posit Software, PBC},
+  year         = {2016},
+  note         = {R package version 0.5.0},
+  doi          = {10.32614/CRAN.package.dplyr},
+  url          = {https://dplyr.tidyverse.org},
+  publisher    = {Comprehensive R Archive Network (CRAN)},
+}
+        </citation>
+        <citation type="bibtex">
+            @Manual{adegenet,
+  title        = {adegenet: Exploratory Analysis of Genetic and Genomic Data},
+  author       = {Thibaut Jombart and Zhian N. Kamvar and Caitlin Collins and Roman Lustrik and Marie-Pauline Beugin and Brian J. Knaus and Peter Solymos and Vladimir Mikryukov and Klaus Schliep and Tiago Maié and Libor Morkovsky and Ismail Ahmed and Anne Cori and Federico Calboli and RJ Ewing and Frédéric Michaud and Rebecca DeCamp and Alexandre Courtiol and Lindsay V. Clark and Pavel Dimens and Max Coulter and Ivan Krylov},
+  year         = {2022},
+  note         = {R package version 2.1.1},
+  doi          = {10.32614/CRAN.package.adegenet},
+  url          = {https://github.com/thibautjombart/adegenet},
+  publisher    = {Comprehensive R Archive Network (CRAN)}
+}
+        </citation>
+
+        <citation type="bibtex">
+            @Manual{vcfR,
+  title        = {vcfR: Manipulate and Visualize VCF Data},
+  author       = {Brian J. Knaus and Niklaus J. Grunwald and Eric C. Anderson and David J. Winter and Zhian N. Kamvar and Javier F. Tabima},
+  year         = {2018},
+  note         = {R package version 1.8.0},
+  doi          = {10.32614/CRAN.package.vcfR},
+  url          = {https://github.com/knausb/vcfR},
+  publisher    = {Comprehensive R Archive Network (CRAN)},
+}
+        </citation>
+        
+        <citation type="bibtex">
+            @article{Danecek2011,
+  author          = {Danecek, Petr and Auton, Adam and Abecasis, Goncalo and Albers, Cornelis A. and Banks, Erica and DePristo, Mark A. and Handsaker, Robert E. and Lunter, Gerton and Marth, Gabor T. and Sherry, Stephen T. and McVean, Gil and Durbin, Richard and {1000 Genomes Project Analysis Group}},
+  title           = {The variant call format and {VCF}tools},
+  journal         = {Bioinformatics},
+  volume          = {27},
+  number          = {15},
+  pages           = {2156-2158},
+  year            = {2011},
+  doi             = {10.1093/bioinformatics/btr330},
+  URL             = {https://doi.org/10.1093/bioinformatics/btr330},
+  eprint          = {https://academic.oup.com/bioinformatics/article-pdf/27/15/2156/600788/btr330.pdf},
+}
+        </citation>
+    <citation type="bibtex">
+        @manual{VCFv45,
+  title        = {The Variant Call Format (VCF) Specification, Version 4.5},
+  author       = {{HTS-specs team}},
+  organization = {Global Alliance for Genomics and Health},
+  year         = {2024},
+  url          = {https://samtools.github.io/hts-specs/VCFv4.5.pdf},
+  note         = {Accessed: 2025-02-11}
+}
+    </citation>
+
+    <citation type="bibtex">
+        @article{DrayDufour2007,
+  author  = {Dray, Stéphane and Dufour, Anne-Béatrice},
+  title   = {The ade4 Package: Implementing the Duality Diagram for Ecologists},
+  journal = {Journal of Statistical Software},
+  year    = {2007},
+  volume  = {22},
+  number  = {4},
+  pages   = {1--20},
+  doi     = {10.18637/jss.v022.i04},
+  url     = {https://doi.org/10.18637/jss.v022.i04}
+}
+    </citation>
+    <citation type="bibtex">
+        @article{Goudet2005,
+  author  = {Goudet, J.},
+  title   = {Hierfstat, a package for R to compute and test hierarchical F-statistics},
+  journal = {Molecular Ecology Notes},
+  year    = {2005},
+  volume  = {5},
+  number  = {1},
+  pages   = {184--186},
+  doi     = {10.1111/j.1471-8286.2004.00828.x}
+}
+    </citation>
+
+    <citation type="bibtex">
+        @Article{Winter2012,
+    title = {mmod: an R library for the calculation of population differentiation statistics},
+    author = {D.J. Winter},
+    journal = {Molecular Ecology Resources},
+    year = {2012},
+    </citation>
+
+    <citation type="bibtex">
+        @article{nei1973analysis,
+  author = {Nei, M.},
+  title = {Analysis of Gene Diversity in Subdivided Populations},
+  journal = {Proceedings of the National Academy of Sciences},
+  volume = {70},
+  number = {12},
+  pages = {3321--3323},
+  year = {1973},
+  doi = {10.1073/pnas.70.12.3321},
+  url = {https://www.pnas.org/doi/abs/10.1073/pnas.70.12.3321}
+}
+    </citation>
+
+    <citation type="bibtex">
+        @article{jost2008gst,
+  author = {Jost, Lou},
+  title = {$G_{ST}$ and its relatives do not measure differentiation},
+  journal = {Molecular Ecology},
+  volume = {17},
+  number = {18},
+  pages = {4015--4026},
+  doi = {10.1111/j.1365-294X.2008.03887.x},
+  url = {https://onlinelibrary.wiley.com/doi/abs/10.1111/j.1365-294X.2008.03887.x},
+  year = {2008}
+}
+    </citation>
+
+    <citation type="bibtex">
+        @article{weir1984estimating,
+  author = {Weir, Bruce S. and Cockerham, C. Clark},
+  title = {Estimating F-Statistics for the Analysis of Population Structure},
+  journal = {Evolution},
+  volume = {38},
+  number = {6},
+  pages = {1358--1370},
+  year = {1984},
+  doi = {10.2307/2408641},
+  url = {https://www.jstor.org/stable/2408641}
+}
+    </citation>
+    </citations>
+</tool>

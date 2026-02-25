@@ -1,0 +1,110 @@
+<tool id="vcf2genepop" name="VCF to Genepop" version="0.1.0">
+    <description>
+        conversion using PGDSpider
+    </description>
+
+    <requirements>
+        <requirement type="package" version="2.1.1.5">pgdspider</requirement>
+    </requirements>
+
+    <command detect_errors="exit_code"><![CDATA[
+        bash '$__tool_directory__/vcf2genepop.sh'
+            #set $vcf_paths = ','.join([str($v) for $v in $vcf_input])
+            #set $vcf_names = ','.join([$v.element_identifier for $v in $vcf_input])
+            '$vcf_paths'
+            '$vcf_names'
+    ]]></command>
+
+    <inputs>
+        <param name="vcf_input" type="data" format="vcf" label="Upload your VCF file" multiple="true"
+            help="File containing DNA sequence data in VCF format. You can upload a simple file, multiple file or a dataset collection"/>
+    </inputs>
+
+    <outputs>
+        <data name="genepop_files" format="txt" label="${tool.name}">
+            <discover_datasets pattern="(?P&lt;designation&gt;.+)\.txt$" directory="genepop_files_directory" visible="true" assign_primary_output="true"/>
+        </data>
+    </outputs>
+
+    <tests>
+        <test>
+            <param name="vcf_input" value="test_vcf.vcf"/>
+            <output name="genepop_files" file="genepop_files_directory/test_vcf_genepop.txt" count="1"/>
+        </test>
+    </tests>
+
+    <help><![CDATA[
+Usage
+=====
+
+As input, the user provides one or more VCF files (Danecek *et al.* 2011) to be converted into Genepop formatted files using PGDSpider.
+
+PGDSpider is a powerful automated data conversion tool for population genetics and genomics programs (https://software.bioinformatics.unibe.ch/pgdspider/). 
+
+For each input VCF file, the tool parses the genotypes and generates a Genepop file containing the list of loci followed by the individual genotypes, formatted for use in many population genetics softwares and R functions.
+
+Example of genepop file : 
+
+::
+
+    loc1
+    loc2
+    .
+    .
+    .
+    locX
+    POP 
+    pop.1, 0101 0101 ...
+    pop.1, 0001 0101 ...
+    POP
+    pop.2, 0100 0101 ...
+    pop.2, 0100 0101 ...
+    ...
+
+This file can be used as input for the LDNe software to estimate the effective population size.
+
+See also examples of VCF formats in :  https://samtools.github.io/hts-specs/VCFv4.5.pdf
+
+    ]]></help>
+
+    <citations>
+        <citation type="bibtex">
+            @article{Lischer2012,
+  author = {Lischer, Heidi E. L. and Excoffier, Laurent},
+  title = {{PGDSpider: An automated data conversion tool for connecting population genetics and genomics programs}},
+  journal = {Bioinformatics},
+  year = {2012},
+  volume = {28},
+  number = {2},
+  pages = {298--299},
+  doi = {10.1093/bioinformatics/btr642},
+  url= {https://academic.oup.com/bioinformatics/article/28/2/298/198891},
+}
+        </citation>
+
+        <citation type="bibtex">
+            @article{Danecek2011,
+  author          = {Danecek, Petr and Auton, Adam and Abecasis, Goncalo and Albers, Cornelis A. and Banks, Erica and DePristo, Mark A. and Handsaker, Robert E. and Lunter, Gerton and Marth, Gabor T. and Sherry, Stephen T. and McVean, Gil and Durbin, Richard and {1000 Genomes Project Analysis Group}},
+  title           = {The variant call format and {VCF}tools},
+  journal         = {Bioinformatics},
+  volume          = {27},
+  number          = {15},
+  pages           = {2156-2158},
+  year            = {2011},
+  doi             = {10.1093/bioinformatics/btr330},
+  URL             = {https://doi.org/10.1093/bioinformatics/btr330},
+  eprint          = {https://academic.oup.com/bioinformatics/article-pdf/27/15/2156/600788/btr330.pdf},
+}
+        </citation>
+        <citation type="bibtex">
+        @manual{VCFv45,
+  title        = {The Variant Call Format (VCF) Specification, Version 4.5},
+  author       = {{HTS-specs team}},
+  organization = {Global Alliance for Genomics and Health},
+  year         = {2024},
+  url          = {https://samtools.github.io/hts-specs/VCFv4.5.pdf},
+  note         = {Accessed: 2025-02-11}
+}
+        </citation>
+    </citations>
+</tool>

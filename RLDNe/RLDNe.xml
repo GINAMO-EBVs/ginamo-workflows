@@ -1,0 +1,166 @@
+<tool id="LDNe" name="LDNe estimation" version="0.1.0">
+    <description>
+        using RLDNe package and NeEstimator.
+    </description>
+    <requirements>  
+        <requirement type="package" version="4.5">r-base</requirement>
+        <requirement type="package" version="0.1.0">r-efglmh</requirement>
+        <requirement type="package" version="1.0.0">r-rldne</requirement>
+        <requirement type="package" version ="1.1.4">r-dplyr</requirement>
+    </requirements>
+
+    <command detect_errors="exit_code"><![CDATA[
+        Rscript '$__tool_directory__/RLDNe.R'
+            #set $gen_paths = ','.join([str($v) for $v in $input_data])
+            #set $gen_names = ','.join([$v.element_identifier for $v in $input_data])
+            '$gen_paths'
+            '$gen_names'
+            '$indpop'
+            '$marker_type'
+            '$n_critical_values'
+            '$critical_freqs'
+            '$confidence_intervals'
+            '$mating_system'
+            '$max_individuals'
+            '$pop_range'
+            '$loc_range'
+    ]]> </command>
+
+    <inputs>
+        <param name="input_data" type="data" format="txt" label="Upload your genepop file" multiple="true"
+            help="Each file must contain a single population. You can upload a simple file, multiple file or dataset collection."/>
+        <param name="indpop" type="data" format="tabular" label="Upload your population file"
+            help="File containing individuals in the first column and their population in the second, separated by a tabulation character."/>
+        <param name="marker_type" type="select" label="Marker type"
+            help="Type of genetic marker used (SNPs, microsatellites (SSR)). This value is reported in the output table.">
+            <option value="SNP">SNP</option>
+            <option value="SSR">SSR</option>
+        </param>
+        <param name="n_critical_values" type="integer" value="3" min="1" label="Number of critical frequency thresholds"
+            help="Number of minimum allele frequency (MAF) thresholds used to estimate Ne."/>
+        <param name="critical_freqs" type="text" value="0.02 0.05 1" label="Critical allele frequencies (MAF)"
+            help="Space-separated list of minimum frequencies (e.g. 0.01 0.02 0.05). Alleles below these values are ignored."/>
+        <param name="confidence_intervals" type="select" label="Confidence intervals"
+            help="1 = compute Jackknife confidence intervals; 0 = do not compute confidence intervals.">
+            <option value="1">1 = Compute Jackknife confidence intervals</option>
+            <option value="0">0 = Do not compute confidence intervals</option>
+        </param>
+        <param name="mating_system" type="select" label="Maiting system"
+            help="0: Random maiting, 1: Monogamy (LD Method)">
+            <option value="0">0: Random mating</option>
+            <option value="1">1: Monogamy</option>
+        </param>
+        <param name="max_individuals" type="integer" value="0" min="0" label="Maximum number of individuals per population."
+            help="Maximum number of individuals to process per population. Use 0 for no limite." />
+        <param name="pop_range" type="integer" value="0" min="0" label="Population range to run"
+            help="Specify the range of populations to process as a pair of integers (e.g., '1 5' to process populations 1 through 5). Set the first value to '0' to process all populations found in the file."/>
+        <param name="loc_range" type="integer" value="0" min="0" label="Loci range to run"
+            help="Specify the range of loci (genetic markers) to include in the analysis as a pair of integers (e.g., '1 100'). Setting the first value to '0' includes all loci present in the dataset."/>
+    </inputs>
+
+    <outputs>
+        <collection name="result_table" type="list" label="${tool.name}: Raw file from NeEstimator">
+            <discover_datasets pattern="(?P&lt;designation&gt;.+)\.txt$" directory="results_LDNe" format="txt"/>
+        </collection>
+        <data name="summary_table" from_work_dir="summary_file/LDNe_results.txt" format="txt" />
+    </outputs>
+
+    <tests>
+        <test>
+            <param name="input_data" value="data_test_RLDNe.txt"/>
+            <param name="indpop" value="test_pop.tabular"/>
+            <param name="marker_type" value="SNP"/>
+            <param name="n_critical_values" value="3"/>
+            <param name="critical_freqs" value="0.02 0.05 0.1"/>
+            <param name="confidence_intervals" value="1"/>
+            <param name="mating_system" value="0"/>
+            <param name="max_individuals" value="0"/>
+            <param name="pop_range" value="0"/>
+            <param name="loc_range" value="0"/>
+            <output_collection name="result_table" type="list" count="1"/>
+            <output name="summary_table" file="summary_file/LDNe_results.txt"/>
+        </test>
+    </tests>
+    <help><![CDATA[
+Usage
+=====
+
+As input, the user provides one or more genepop files and a population assigment file (tabular format) containing individual identifiers and their respective population groups. User provides also differents parameters to run LDNe estimation.
+
+This tool implements the Linkage Disequilibrium (LD) method from **NeEstimator V2.1** via the **RLDNe** R package to estimate Ne by calculating the non-random association of alleles at different loci. The output provides a summary table containing Ne estimates, 95% Jackknife confidence intervals, and r2 statistics (observed and expected) for each population and each allele frequency threshold specified.
+
+Examples files
+==============
+
+Input Genepop file (.txt)
+::
+
+    loc1
+    loc2
+    .
+    .
+    .
+    locX
+    POP 
+    pop.1, 0101 0101 ...
+    pop.1, 0001 0101 ...
+    POP
+    pop.2, 0100 0101 ...
+    pop.2, 0100 0101 ...
+    ...
+
+You can used vcf2genepop tool or PGDSpider on your own computer.
+
+Population file (.tabular)
+
+::
+
+    ind1    pop1
+    ind2    pop2
+    ind3    pop2
+    ind4    pop1
+    ind5    pop3
+
+Summary output table
+
++----------+------+-------------+--------+-------+------+-------+------------+----------+
+| Dataset  | Pop  | Marker_type | Subset | Loci  | MAF  | NeLD  | JK_CI_down | JK_CI_up |
++==========+======+=============+========+=======+======+=======+============+==========+
+| MyStudy  | Pop1 | SNP         | 1      | 1200  | 0.02 | 450.2 | 380.1      | 560.4    |
++----------+------+-------------+--------+-------+------+-------+------------+----------+
+| MyStudy  | Pop1 | SNP         | 1      | 1150  | 0.05 | 435.0 | 370.5      | 510.2    |
++----------+------+-------------+--------+-------+------+-------+------------+----------+
+
+
+    ]]></help>
+
+    <citations>
+        <citation type="bibtex">
+        @misc{RLDNe,
+  title        = {RLDNe: A Convenient R Interface For NeEstimator V2.1},
+  author       = {Robinson, Zak},
+  year         = {2024},
+  month        = {8},
+  day          = {29},
+  version      = {1.0.0},
+  howpublished = {\url{https://github.com/zakrobinson/RLDNe}},
+  note         = {R package version 1.0.0},
+  license      = {GPL-2}
+}
+        </citation>
+        <citation type="bibtex">
+        @article{Do2014NeEstimatorV2,
+  title        = {NeEstimator v2: re-implementation of software for the estimation of contemporary effective population size (Ne) from genetic data},
+  author       = {Do, C. and Waples, R. S. and Peel, D. and Macbeth, G. M. and Tillett, B. J. and Ovenden, J. R.},
+  journal      = {Molecular Ecology Resources},
+  year         = {2014},
+  volume       = {14},
+  number       = {1},
+  pages        = {209--214},
+  doi          = {10.1111/1755-0998.12157},
+  note         = {Epub 2013 Aug 31},
+  url          = {https://pubmed.ncbi.nlm.nih.gov/23992227/}
+}
+        </citation>
+    </citations>
+</tool>
