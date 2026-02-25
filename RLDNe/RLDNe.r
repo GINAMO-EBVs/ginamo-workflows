@@ -312,7 +312,10 @@ ldne_results <- ldne_results %>%
                   "JK_CI_down",
                   "JK_CI_up",
                   "Overall_LD_r2",
-                  "Expected_LD_r2"), as.numeric))
+                  "Expected_LD_r2"), as.numeric),
+    JK_CI_up = ifelse(is.na(JK_CI_up), 999999, JK_CI_up),
+    NeLD     = ifelse(is.na(NeLD), 999999, NeLD)
+  )
 
 
 write.table(ldne_results,

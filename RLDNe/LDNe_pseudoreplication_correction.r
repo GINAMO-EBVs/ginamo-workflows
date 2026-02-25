@@ -16,7 +16,11 @@ results <- results %>%
   mutate(
     NeLD = as.numeric(NeLD),
     NeLD = ifelse(is.na(NeLD), 999999, NeLD),
-    NeLD_corrected = NeLD / (0.098 + 0.219 * log(nb_chrom))
+    NeLD_corrected = ifelse(
+      NeLD == 999999,
+      999999,
+      NeLD / (0.098 + 0.219 * log(nb_chrom))
+    )
   )
 
 output_file <- paste0("summary_file/LDNe_pseudoreplication_corrected.txt")
