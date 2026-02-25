@@ -115,7 +115,7 @@ compute_div_stats <- function(gen_file, dataset_name, marker_type) {
   Hexp <- t(sapply(pops, function(ls) {
     hf <- hierfstat::genind2hierfstat(ls)
     bs <- hierfstat::basic.stats(hf)
-    mean(bs$Hs, na.rm = TRUE)
+    mean(bs$Ht, na.rm = TRUE)
   }))
 
   # Allelic richness
