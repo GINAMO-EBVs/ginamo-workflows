@@ -105,18 +105,19 @@ compute_div_stats <- function(gen_file, dataset_name, marker_type) {
 
   pops <- seppop(gen_file, drop = TRUE)
 
-  # Hobs & Hexp
-  Hobs <- t(sapply(pops, function(ls) {
+  # basic.stats calculation by pop
+  bs_list <- lapply(pops, function(ls) {
     hf <- hierfstat::genind2hierfstat(ls)
-    bs <- hierfstat::basic.stats(hf)
-    mean(bs$Ho, na.rm = TRUE)
-  }))
+    hierfstat::basic.stats(hf)
+  })
 
-  Hexp <- t(sapply(pops, function(ls) {
-    hf <- hierfstat::genind2hierfstat(ls)
-    bs <- hierfstat::basic.stats(hf)
-    mean(bs$Ht, na.rm = TRUE)
-  }))
+  # Hobs, Hexp
+  Hobs <- sapply(bs_list, function(bs) bs$overall["Ho"])
+  Hexp <- sapply(bs_list, function(bs) bs$overall["Ht"])
+
+  #Fis
+  Fis <- t(sapply(seppop(gen_file), function(ls) basic.stats(ls)$perloc$Fis))
+  Fis_pop <- rowMeans(as.matrix(Fis),na.rm=TRUE)
 
   # Allelic richness
   Richness <- hierfstat::allelic.richness(gen_file, diploid = TRUE)
@@ -126,12 +127,6 @@ compute_div_stats <- function(gen_file, dataset_name, marker_type) {
   pop_names <- levels(pop(gen_file))
   names(Richness_mean) <- pop_names
 
-  # Fis
-  Fis <- t(sapply(pops, function(ls) {
-    hf <- hierfstat::genind2hierfstat(ls)
-    bs <- hierfstat::basic.stats(hf)
-    mean(bs$Fis, na.rm = TRUE)
-  }))
 
   # Nombre d'individus
   n_ind_pop <- table(pop(gen_file))
@@ -144,7 +139,7 @@ compute_div_stats <- function(gen_file, dataset_name, marker_type) {
     Hobs = as.vector(Hobs),
     Hexp = as.vector(Hexp),
     Ar   = Richness_mean,
-    Fis  = as.vector(Fis),
+    Fis  = as.vector(Fis_pop),
     average_pairwise_Fst = NA,
     average_Gst_Nei = NA,
     average_Jost_D = NA
