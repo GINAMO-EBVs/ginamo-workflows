@@ -150,7 +150,7 @@ compute_div_stats <- function(gen_file, dataset_name, marker_type) {
 
 ########################################################################
 # Function : pairwise_values_Fst_DJost
-# Description : 
+# Description : Pairwise values Fst, DJost, Gst Nei
 ########################################################################
 pairwise_values_Fst_DJost <- function(gen_path) {
   #Pairwise values
@@ -175,7 +175,7 @@ pairwise_values_Fst_DJost <- function(gen_path) {
 
 ########################################################################
 # Function : average_pairwise_by_pop
-# Description : 
+# Description : Estimation of average pairwise Fst, Gst Nei and DJost statistics.
 ########################################################################
 
 average_pairwise_by_pop <- function(matrices_list, dataset_name) {
@@ -299,12 +299,12 @@ save_matrices(pairwise_matrices, input_name)
 if (marker_type == "snp") {
   #Create a modified indpop with "tot" for all individuals
   indpop_tot <- indpop
-  indpop_tot$Pop <- "tot"
+  indpop_tot$Pop <- "All_populations_combined"
   gen_file_tot <- load_snp_data(input_path, indpop_tot)
 } else if (marker_type == "ssr") {
   gen_file_tot <- load_ssr_data(input_path)
   # For SSR, manually set all populations to "tot"
-  adegenet::pop(gen_file_tot) <- as.factor(rep("tot", nInd(gen_file_tot)))
+  adegenet::pop(gen_file_tot) <- as.factor(rep("All_populations_combined", nInd(gen_file_tot)))
 }
 
 # Compute diversity statistics for "tot"
