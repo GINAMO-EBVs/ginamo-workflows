@@ -1,6 +1,6 @@
 <tool id="snpdivstats" name="SNP summary statistics" version="0.1.0">
     <description>
-        estimate He, Hobs, Fis and allelic richness.
+        estimate He, Hobs, Fis, allelic richness and pairwise values (Fst, DJost, Gst Nei)
     </description>
 
     <requirements>
@@ -59,7 +59,7 @@
     <section name="stats_selection" title="Statistics to compute" expanded="true">
             <param name="calc_heterozygosity" type="boolean" truevalue="true" falsevalue="false"
                 checked="true" label="Heterozygosity (Hobs and Hexp / He)"
-                help="Observed and expected heterozygosity, computed together via basic.stats."/>
+                help="Observed and expected heterozygosity."/>
             <param name="calc_fis" type="boolean" truevalue="true" falsevalue="false"
                 checked="true" label="Inbreeding coefficient (Fis) (Weir &amp; Cockerham 1984)"/>
             <param name="calc_ar" type="boolean" truevalue="true" falsevalue="false"
@@ -103,7 +103,7 @@
     </outputs>
 
     <tests>
-    <!-- Test 1: SNP - stats par defaut (Hobs, Fis, Ar) sans matrices de differenciation -->
+    <!-- Test 1: SNP - stats de base (Hobs, Fis, Ar) sans differenciation -->
     <test expect_num_outputs="1">
         <conditional name="data_conditional">
             <param name="marker_type" value="snp"/>
@@ -121,7 +121,7 @@
         <output name="summary_div_stats" file="summary_div_stats_snp.txt" ftype="tabular"/>
     </test>
 
-    <!-- Test 2: SNP - avec matrices de differenciation Fst, Gst et Jost D -->
+    <!-- Test 2: SNP - toutes les stats incluant matrices de differenciation -->
     <test expect_num_outputs="7">
         <conditional name="data_conditional">
             <param name="marker_type" value="snp"/>
@@ -140,12 +140,18 @@
         <output name="fst_matrix" file="fst_matrix.txt" ftype="tabular"/>
         <output name="gst_matrix" file="gst_pr_nei_matrix.txt" ftype="tabular"/>
         <output name="djost_matrix" file="jost_D_matrix.txt" ftype="tabular"/>
-        <output name="fst_heatmap" ftype="png"/>
-        <output name="gst_heatmap" ftype="png"/>
-        <output name="djost_heatmap" ftype="png"/>
+        <output name="fst_heatmap" ftype="png">
+            <assert_contents><has_size min="1000"/></assert_contents>
+        </output>
+        <output name="gst_heatmap" ftype="png">
+            <assert_contents><has_size min="1000"/></assert_contents>
+        </output>
+        <output name="djost_heatmap" ftype="png">
+            <assert_contents><has_size min="1000"/></assert_contents>
+        </output>
     </test>
 
-    <!-- Test 3: SSR - stats par defaut (Hobs, Fis, Ar) sans matrices de differenciation -->
+    <!-- Test 3: SSR - stats de base (Hobs, Fis, Ar) sans differenciation -->
     <test expect_num_outputs="1">
         <conditional name="data_conditional">
             <param name="marker_type" value="ssr"/>
@@ -162,7 +168,7 @@
         <output name="summary_div_stats" file="summary_div_stats_ssr.txt" ftype="tabular"/>
     </test>
 
-    <!-- Test 4: SSR - avec matrices de differenciation Fst, Gst et Jost D -->
+    <!-- Test 4: SSR - toutes les stats incluant matrices de differenciation -->
     <test expect_num_outputs="7">
         <conditional name="data_conditional">
             <param name="marker_type" value="ssr"/>
@@ -180,9 +186,15 @@
         <output name="fst_matrix" file="fst_matrix.txt" ftype="tabular"/>
         <output name="gst_matrix" file="gst_pr_nei_matrix.txt" ftype="tabular"/>
         <output name="djost_matrix" file="jost_D_matrix.txt" ftype="tabular"/>
-        <output name="fst_heatmap" ftype="png"/>
-        <output name="gst_heatmap" ftype="png"/>
-        <output name="djost_heatmap" ftype="png"/>
+        <output name="fst_heatmap" ftype="png">
+            <assert_contents><has_size min="1000"/></assert_contents>
+        </output>
+        <output name="gst_heatmap" ftype="png">
+            <assert_contents><has_size min="1000"/></assert_contents>
+        </output>
+        <output name="djost_heatmap" ftype="png">
+            <assert_contents><has_size min="1000"/></assert_contents>
+        </output>
     </test>
 </tests>
 
@@ -190,7 +202,7 @@
 Usage
 =====
 
-As input, the user provides genetic data depending on the marker type selected. For SNPs, one or more VCF files (Danecek *et al.* 2011) and a population file (see format below). For SSRs, one or more tabular files containing genotypes and population information (see format below).
+As input, the user provides genetic data depending on the marker type selected. For SNPs, one or more VCF files (Danecek *et al.* 2011) and a population file (see format below). For SSRs, one or more tabular files containing genotypes and population information (see format below). The user selects the statistics they want to compute. 
 
 This tool computes standard genetic diversity statistics and differentiation indicies using several R packages (adegenet, hierfstat and mmod). It calculates observed and expected heterozygosity (Hobs, Hexp), allelic richness (Ar), and inbreeding coefficient (Fis) (Weir & Cockerham 1984). It also performs pairwise population comparisons to provide Fst (Weir & Cockerham 1984), Gst (Nei 1973) and Jost's D statistics (Jost 2008).
 
