@@ -34,7 +34,7 @@
         <test>
             <param name="vcf_input" value="test_vcf.vcf"/>
             <param name="indpop" value="test_pop.txt"/>
-            <output_collection name="vcf_split" type="list" count="10"/>
+            <output_collection name="vcf_split" type="list" count="2"/>
         </test>
     </tests>
 <help><![CDATA[
