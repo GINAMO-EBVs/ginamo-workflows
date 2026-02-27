@@ -33,16 +33,15 @@ if [[ -z "$indpop_file" ]]; then
 fi
 
 ##### Check indpop_file structure #####
-local line_num=0
-local error_found=0
+line_num=0
+error_found=0
 while IFS= read -r line || [[ -n "$line" ]]; do
-    ((line_num++))
+    line_num=$(( line_num + 1 ))
 
     # Check empty lines
     [[ -z "$line" ]] && continue
 
     # Ensure exactly two tab-separated columns (one tab delimiter only)
-    local col_count
     col_count=$(echo "$line" | awk -F'\t' '{print NF}')
     if [[ "$col_count" -ne 2 ]]; then
         echo "ERROR: Population files does not contain exactly 2 tab-separated columns" >&2
@@ -93,6 +92,11 @@ split_individuals_by_pop(){
         pop_inds[$pop]+="${ind}"$'\n'
 
     done < "$indpop_file"
+
+    if [[ "${#pop_inds[@]}" -eq 0 ]]; then
+        echo "ERROR: No populations detected in population file." >&2
+        exit 1
+    fi
 
     ##### Initialize the list file (empty the file contents if it already exists) #####
     > "$pop_file_list"
@@ -161,31 +165,14 @@ split_vcf_by_pop() {
         
         local output_vcf="${vcf_dir}/${vcf_basename}_${pop_name}.vcf"
         
-        # Create a temporary gzipped VCF for indexing
-        local tmp_vcf="${output_vcf}.gz"
-        
         # Subset VCF and compress
-        bcftools view -S "$ind_list" --force-samples "$vcf" -Oz -o "$tmp_vcf"
+        bcftools view -S "$ind_list" --force-samples "$vcf" -Ov -o "$output_vcf"
         
         # Verify that VCF creation succeeded
-        if [[ $? -eq 0 && -f "$tmp_vcf" ]]; then
-            
-            # Index the output VCF
-            bcftools index -t "$tmp_vcf"
-            
-            # Convert compressed VCF back to uncompressed VCF format
-            bcftools view "$tmp_vcf" -Ov -o "$output_vcf"
-            
-            # Cleanup temporary files
-            rm -f "$tmp_vcf" "${tmp_vcf}.tbi"
-            
-            ((vcf_created ++))
-        else
-            echo "Failed to create VCF for $pop_name"
+        if [[ ! -s "$output_vcf" ]]; then
+            echo "ERROR: Output VCF is empty or missing for population '${pop_name}': $output_vcf" >&2
+            exit 1
         fi
-        
-        
-        done < "$pop_file_list"
 
         ##### Verify that filtered VCF is not empty ######
         if [[ ! -s "$output_vcf" ]]; then
@@ -193,13 +180,17 @@ split_vcf_by_pop() {
             exit 1
         fi
 
-        if ! bcftools view -H "$output_vcf" | head -n 1 | grep -q .; then
-            echo "ERROR: Filtered VCF contains no variants."
+        set +e
+        first_variant=$(bcftools view -H "$output_vcf" 2>/dev/null | head -n 1)
+        set -e
+        if [[ -z "$first_variant" ]]; then
+            echo "ERROR: Output VCF contains no variants for population '${pop_name}': $output_vcf" >&2
             exit 1
-        fi   
+        fi
 
-        echo "INFO: ${vcf_created} VCF file(s) successfully created."
-        
+        done < "$pop_file_list"
+   
+   echo "INFO: ${vcf_created} VCF file(s) successfully created."
 }
 
 ########################################
