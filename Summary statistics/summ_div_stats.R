@@ -5,6 +5,9 @@ library(adegenet)
 library(vcfR)
 library(hierfstat)
 library(mmod)
+library(ggplot2)
+library(tibble)
+library(viridis)
 
 #Load arguments
 args <- commandArgs(trailingOnly = TRUE)
@@ -18,21 +21,44 @@ if (marker_type == "snp") {
   indpop_path <- args[4]
   indpop <- read.table(indpop_path, header = FALSE, sep = "\t")
   colnames(indpop) <- c("Ind", "Pop")
+  flag_offset <- 4  # flags start at args[5]
+} else {
+  flag_offset <- 3  # flags start at args[4]
 }
 
-#Create output file
-summary_div_stats <- as.data.frame(matrix(ncol = 11, nrow = 0))
-colnames(summary_div_stats) <- c("Dataset",
-                                 "Pop",
-                                 "Marker_type",
-                                 "n_ind",
-                                 "Hobs",
-                                 "Hexp",
-                                 "Ar",
-                                 "Fis",
-                                 "average_pairwise_Fst",
-                                 "average_Gst_Nei",
-                                 "average_Jost_D")
+# Statistics selection flags
+# Passed as "true"/"false" strings from Galaxy
+# Safe boolean parser
+parse_bool <- function(x, name) {
+  if (length(x) == 0 || is.na(x) || trimws(x) == "") {
+    warning("Argument '", name, "' is missing/empty => FALSE")
+    return(FALSE)
+  }
+  tolower(trimws(x)) == "true"
+}
+
+calc_heterozygosity <- parse_bool(args[flag_offset + 1], "calc_heterozygosity")
+calc_fis            <- parse_bool(args[flag_offset + 2], "calc_fis")
+calc_ar             <- parse_bool(args[flag_offset + 3], "calc_ar")
+calc_fst            <- parse_bool(args[flag_offset + 4], "calc_fst")
+calc_gst            <- parse_bool(args[flag_offset + 5], "calc_gst")
+calc_djost          <- parse_bool(args[flag_offset + 6], "calc_djost")
+
+# Differentiation stats: at least one must be selected to compute pairwise matrices
+calc_diff <- calc_fst || calc_gst || calc_djost
+
+#Create output file with dynamic columns based on selected stats
+base_cols <- c("Dataset", "Pop", "Marker_type", "n_ind")
+if (calc_heterozygosity) base_cols <- c(base_cols, "Hobs", "Hexp")
+if (calc_ar)             base_cols <- c(base_cols, "Ar")
+if (calc_fis)            base_cols <- c(base_cols, "Fis")
+if (calc_fst)   base_cols <- c(base_cols, "average_pairwise_Fst")
+if (calc_gst)   base_cols <- c(base_cols, "average_Gst_Nei")
+if (calc_djost) base_cols <- c(base_cols, "average_Jost_D")
+
+summary_div_stats <- as.data.frame(matrix(ncol = length(base_cols), nrow = 0))
+colnames(summary_div_stats) <- base_cols
+
 
 #############################################################################
 # Function : load_snp_data
@@ -104,70 +130,65 @@ load_ssr_data <- function(input_path) {
 compute_div_stats <- function(gen_file, dataset_name, marker_type) {
 
   pops <- seppop(gen_file, drop = TRUE)
-
-  # basic.stats calculation by pop
-  bs_list <- lapply(pops, function(ls) {
-    hf <- hierfstat::genind2hierfstat(ls)
-    hierfstat::basic.stats(hf)
-  })
-
-  # Hobs, Hexp
-  Hobs <- sapply(bs_list, function(bs) bs$overall["Ho"])
-  Hexp <- sapply(bs_list, function(bs) bs$overall["Ht"])
-
-  #Fis
-  Fis <- t(sapply(seppop(gen_file), function(ls) basic.stats(ls)$perloc$Fis))
-  Fis_pop <- rowMeans(as.matrix(Fis),na.rm=TRUE)
-
-  # Allelic richness
-  Richness <- hierfstat::allelic.richness(gen_file, diploid = TRUE)
-  Richness_mean <- colMeans(as.matrix(Richness$Ar), na.rm = TRUE)
-
-  Richness_mean <- Richness_mean[names(Richness_mean) != "dumpop"]
-  pop_names <- levels(pop(gen_file))
-  names(Richness_mean) <- pop_names
-
-
-  # Nombre d'individus
   n_ind_pop <- table(pop(gen_file))
+  pop_names <- levels(pop(gen_file))
 
   div_stats_dataset <- data.frame(
     Dataset = dataset_name,
     Pop = names(n_ind_pop),
     Marker_type = marker_type,
-    n_ind = as.vector(n_ind_pop),
-    Hobs = as.vector(Hobs),
-    Hexp = as.vector(Hexp),
-    Ar   = Richness_mean,
-    Fis  = as.vector(Fis_pop),
-    average_pairwise_Fst = NA,
-    average_Gst_Nei = NA,
-    average_Jost_D = NA
+    n_ind = as.vector(n_ind_pop)
   )
+
+  # Hobs and Hexp computation
+  if (calc_heterozygosity) {
+    bs_list <- lapply(pops, function(ls) {
+      hf <- hierfstat::genind2hierfstat(ls)
+      hierfstat::basic.stats(hf)
+    })
+    div_stats_dataset$Hobs <- as.vector(sapply(bs_list, function(bs) bs$overall["Ho"]))
+    div_stats_dataset$Hexp <- as.vector(sapply(bs_list, function(bs) bs$overall["Ht"]))
+  }
+
+  # Allelic richness
+  if (calc_ar) {
+    Richness <- hierfstat::allelic.richness(gen_file, diploid = TRUE)
+    Richness_mean <- colMeans(as.matrix(Richness$Ar), na.rm = TRUE)
+    Richness_mean <- Richness_mean[names(Richness_mean) != "dumpop"]
+    names(Richness_mean) <- pop_names
+    div_stats_dataset$Ar <- Richness_mean
+  }
+
+  # Fis
+  if (calc_fis) {
+    Fis <- t(sapply(seppop(gen_file), function(ls) basic.stats(ls)$perloc$Fis))
+    div_stats_dataset$Fis <- rowMeans(as.matrix(Fis), na.rm = TRUE)
+  }
+
+  # Differentiation stats placeholders (filled later by average_pairwise_by_pop)
+  if (calc_fst)   div_stats_dataset$average_pairwise_Fst <- NA
+  if (calc_gst)   div_stats_dataset$average_Gst_Nei      <- NA
+  if (calc_djost) div_stats_dataset$average_Jost_D        <- NA
 
   return(div_stats_dataset)
 }
 
 ########################################################################
 # Function : pairwise_values_Fst_DJost
-# Description : Pairwise values Fst, DJost, Gst Nei
+# Description : 
 ########################################################################
 pairwise_values_Fst_DJost <- function(gen_path) {
-  #Pairwise values
-  fst <- genet.dist(gen_path, diploid = TRUE, method = "WC84")
+  matrices_list <- list()
 
-  #Pairwise value from mmod package
-  gst_pr_nei <- pairwise_Gst_Nei(gen_path)
-  jost_D <- pairwise_D(gen_path)
-
-  matrices_list <- list(
-    fst = fst,
-    gst_pr_nei = gst_pr_nei,
-    jost_D = jost_D
-  )
-  
-  # Remove temporary matrices
-  rm(fst, gst_pr_nei, jost_D)
+  if (calc_fst) {
+    matrices_list$fst <- genet.dist(gen_path, diploid = TRUE, method = "WC84")
+  }
+  if (calc_gst) {
+    matrices_list$gst_pr_nei <- pairwise_Gst_Nei(gen_path)
+  }
+  if (calc_djost) {
+    matrices_list$jost_D <- pairwise_D(gen_path)
+  }
   
   return(matrices_list)
 }
@@ -175,45 +196,46 @@ pairwise_values_Fst_DJost <- function(gen_path) {
 
 ########################################################################
 # Function : average_pairwise_by_pop
-# Description : Estimation of average pairwise Fst, Gst Nei and DJost statistics.
+# Description : 
 ########################################################################
 
 average_pairwise_by_pop <- function(matrices_list, dataset_name) {
-  stats_diff <- c("fst", "gst_pr_nei", "jost_D")
+  # Build list of stats to process based on what was computed
+  stats_diff <- names(matrices_list)  # only contains selected stats
 
   # Get population labels from first matrix
   labels <- attr(matrices_list[["fst"]], "Labels")
   
   # Initialize lists to store results
   pops_list <- c()
-  fst_list <- c()
-  gst_nei_list <- c()
-  jost_d_list <- c()
+  fst_list   <- if (calc_fst)   c() else NULL
+  gst_list   <- if (calc_gst)   c() else NULL
+  jost_list  <- if (calc_djost) c() else NULL
   
   for (pop in labels) {
     mean_values <- c()
     
-    for (measure in stats_diff) {
-      values <- as.matrix(matrices_list[[measure]])
-      all_pairwise_1pop <- values[pop, ]
-      all_pairwise_1pop <- all_pairwise_1pop[names(all_pairwise_1pop) != pop] #to remove pop itself
-      mean_values <- c(mean_values, mean(all_pairwise_1pop, na.rm = TRUE))
-    }
-    
+    for (pop in labels) {
     pops_list <- c(pops_list, pop)
-    fst_list <- c(fst_list, mean_values[1])
-    gst_nei_list <- c(gst_nei_list, mean_values[2])
-    jost_d_list <- c(jost_d_list, mean_values[3])
+
+    if (calc_fst) {
+      vals <- as.matrix(matrices_list$fst)[pop, ]
+      fst_list <- c(fst_list, mean(vals[names(vals) != pop], na.rm = TRUE))
+    }
+    if (calc_gst) {
+      vals <- as.matrix(matrices_list$gst_pr_nei)[pop, ]
+      gst_list <- c(gst_list, mean(vals[names(vals) != pop], na.rm = TRUE))
+    }
+    if (calc_djost) {
+      vals <- as.matrix(matrices_list$jost_D)[pop, ]
+      jost_list <- c(jost_list, mean(vals[names(vals) != pop], na.rm = TRUE))
+    }
   }
-  
-  result <- data.frame(
-    Dataset = dataset_name,
-    Pop = pops_list,
-    average_pairwise_Fst = fst_list,
-    average_Gst_Nei = gst_nei_list,
-    average_Jost_D = jost_d_list,
-    stringsAsFactors = FALSE
-  )
+
+  result <- data.frame(Dataset = dataset_name, Pop = pops_list, stringsAsFactors = FALSE)
+  if (calc_fst)   result$average_pairwise_Fst <- fst_list
+  if (calc_gst)   result$average_Gst_Nei      <- gst_list
+  if (calc_djost) result$average_Jost_D        <- jost_list
   
   return(result)
 }
@@ -224,24 +246,59 @@ average_pairwise_by_pop <- function(matrices_list, dataset_name) {
 ###############################################################
 
 save_matrices <- function(matrices_list, dataset_name) {
-  stats_diff <- c("fst", "gst_pr_nei", "jost_D")
-  
-  for (measure in stats_diff) {
+   measure_labels <- list(
+    fst        = "Fst",
+    gst_pr_nei = "Gst (Nei)",
+    jost_D     = "Jost's D"
+  )
+
+  for (measure in names(matrices_list)) {
+    # Map internal names to display labels
     matrix_data <- as.matrix(matrices_list[[measure]])
     labels <- attr(matrices_list[[measure]], "Labels")
-    
-    # Add row and column names
     rownames(matrix_data) <- labels
     colnames(matrix_data) <- labels
-    
-    # Save to file
-    filename <- paste0("matrices_output/", dataset_name, "_", measure, "_matrix.txt")
-    write.table(matrix_data, 
-                file = filename, 
-                quote = FALSE, 
+
+    filename <- paste0("matrices_output/", measure, "_matrix.txt")
+    write.table(matrix_data,
+                file = filename,
+                quote = FALSE,
                 sep = "\t",
                 row.names = TRUE,
-                col.names = NA)  # col.names = NA to align header with data
+                col.names = NA)
+
+    fill_lab <- measure_labels[[measure]]
+
+    df_long <- as.data.frame(matrix_data) |>
+      rownames_to_column("Pop_row") |>
+      pivot_longer(-Pop_row, names_to = "Pop_col", values_to = "Value")
+
+    df_long$Value[df_long$Pop_row == df_long$Pop_col] <- NA
+
+    p <- ggplot(df_long, aes(Pop_row, Pop_col, fill = Value)) +
+      geom_tile(color = "white") +
+      scale_fill_viridis_c(name = fill_lab) +
+      coord_fixed() +
+      theme_minimal() +
+      labs(
+        title = paste("Pairwise", fill_lab, ":", dataset_name),
+        x = "Population",
+        y = "Population"
+      ) +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        panel.grid = element_blank()
+      )
+
+    plot_file <- paste0("matrices_output/", measure, "_heatmap.png")
+
+    ggsave(
+      filename = plot_file,
+      plot = p,
+      width = 8,
+      height = 7,
+      dpi = 300
+    )
   }
 }
 
@@ -267,32 +324,35 @@ if (marker_type == "snp") {
 # Compute diversity statistics
 result <- compute_div_stats(gen_file, input_name, marker_type)
 
-#Pairwise value (Fst, DJost, Gst_Nei)
-pairwise_matrices <- pairwise_values_Fst_DJost(gen_file)
+# Pairwise differentiation (only if at least one diff stat selected)
+if (calc_diff) {
+  pairwise_matrices <- pairwise_values_Fst_DJost(gen_file)
+  mean_pairwise <- average_pairwise_by_pop(pairwise_matrices, dataset_name = input_name)
 
-#Average pairwise for a population
-mean_pairwise <- average_pairwise_by_pop(pairwise_matrices, dataset_name= input_name)
+  # Merge mean pairwise values with diversity stats
+  diff_cols <- intersect(c("average_pairwise_Fst", "average_Gst_Nei", "average_Jost_D"),
+                         colnames(mean_pairwise))
+  result <- result %>%
+    left_join(mean_pairwise %>% select(Pop, all_of(diff_cols)),
+              by = "Pop",
+              suffix = c("", "_new"))
 
-# Merge mean pairwise values with diversity stats
-result <- result %>%
-  left_join(mean_pairwise, by = "Pop", suffix = c("", "_new"))
-  
-# Update the mean columns with the new values
-result$average_pairwise_Fst <- result$average_pairwise_Fst_new
-result$average_Gst_Nei <- result$average_Gst_Nei_new
-result$average_Jost_D <- result$average_Jost_D_new
-  
-# Remove duplicate columns
-result <- result %>%
-  select(Dataset, Pop, Marker_type, n_ind, Hobs, Hexp, Ar, Fis, average_pairwise_Fst, average_Gst_Nei, average_Jost_D)
-  
+  for (col in diff_cols) {
+    new_col <- paste0(col, "_new")
+    if (new_col %in% colnames(result)) {
+      result[[col]] <- result[[new_col]]
+      result[[new_col]] <- NULL
+    }
+  }
+
+  # Save matrices to files
+  save_matrices(pairwise_matrices, input_name)
+}
+
 # Add results to the global dataframe
 if (!is.null(result) && nrow(result) > 0) {
   summary_div_stats <- rbind(summary_div_stats, result)
 }
-
-# Save matrices to files
-save_matrices(pairwise_matrices, input_name)
 
 ############ Total (all populations combined) #################
 # Reload data with "tot" population
@@ -311,9 +371,9 @@ if (marker_type == "snp") {
 result_tot <- compute_div_stats(gen_file_tot, input_name, marker_type)
 
 #Mean pairwise values can't be estimate because only 1 population
-result_tot$average_pairwise_Fst <- NA
-result_tot$average_Gst_Nei <- NA
-result_tot$average_Jost_D <- NA
+if (calc_fst)   result_tot$average_pairwise_Fst <- NA
+if (calc_gst)   result_tot$average_Gst_Nei      <- NA
+if (calc_djost) result_tot$average_Jost_D        <- NA
 
 # Add "tot results" to the global dataframe
 if (!is.null(result_tot) && nrow(result_tot) > 0) {
@@ -322,27 +382,25 @@ if (!is.null(result_tot) && nrow(result_tot) > 0) {
 
 ########### MEAN (average across populations, excluding "tot" rows) #########
 summary_means <- summary_div_stats %>%
-  filter(Pop != "tot") %>%  # Exclude lines "tot"
+  filter(Pop != "All_populations_combined") %>%
   group_by(Dataset, Marker_type) %>%
   summarise(
-    Pop = "mean",
+    Pop   = "mean",
     n_ind = sum(n_ind, na.rm = TRUE),
-    Hobs = mean(Hobs, na.rm = TRUE),
-    Hexp = mean(Hexp, na.rm = TRUE),
-    Ar = mean(Ar, na.rm = TRUE),
-    Fis = mean(Fis, na.rm = TRUE),
-    average_pairwise_Fst = mean(average_pairwise_Fst, na.rm = TRUE),
-    average_Gst_Nei = mean(average_Gst_Nei, na.rm = TRUE),
-    average_Jost_D = mean(average_Jost_D, na.rm = TRUE),
+    across(any_of(c("Hobs", "Hexp", "Ar", "Fis",
+                    "average_pairwise_Fst", "average_Gst_Nei", "average_Jost_D")),
+           ~ mean(.x, na.rm = TRUE)),
     .groups = "drop"
   ) %>%
-  select(Dataset, Pop, Marker_type, n_ind, Hobs, Hexp, Ar, Fis, average_pairwise_Fst, average_Gst_Nei, average_Jost_D)
+  select(any_of(colnames(summary_div_stats)))
 
-# Add to the final table
+# Ajouter les moyennes au tableau final
 summary_div_stats <- rbind(summary_div_stats, summary_means)
 
 #Round to 5 decimal
-cols_to_round <- c("Hobs", "Hexp", "Ar", "Fis", "average_pairwise_Fst", "average_Gst_Nei", "average_Jost_D")
+all_numeric_cols <- c("Hobs", "Hexp", "Ar", "Fis",
+                      "average_pairwise_Fst", "average_Gst_Nei", "average_Jost_D")
+cols_to_round <- intersect(all_numeric_cols, colnames(summary_div_stats))
 summary_div_stats[cols_to_round] <- lapply(summary_div_stats[cols_to_round], round, 5)
 
 
