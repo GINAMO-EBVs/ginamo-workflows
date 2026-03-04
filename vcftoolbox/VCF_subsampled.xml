@@ -47,6 +47,7 @@
             <param name="SUBSET_SNPS_NB" value="1000"/>
             <param name="NB_REPLICATE_VCF" value="5"/>
             <param name="MIN_SNP_NB" value="4000"/>
+            <param name="polymorphic" value="true"/>
             <output_collection name="vcf_subsampled" type="list" count="1"/>
         </test>
 
@@ -55,6 +56,7 @@
             <param name="SUBSET_SNPS_NB" value="1000"/>
             <param name="NB_REPLICATE_VCF" value="5"/>
             <param name="MIN_SNP_NB" value="0"/>
+            <param name="polymorphic" value="true"/>
             <output_collection name="vcf_subsampled" type="list" count="5"/>
         </test>
 
@@ -63,20 +65,23 @@
             <param name="SUBSET_SNPS_NB" value="1000"/>
             <param name="NB_REPLICATE_VCF" value="5"/>
             <param name="MIN_SNP_NB" value="450"/>
+            <param name="polymorphic" value="true"/>
             <output_collection name="vcf_subsampled" type="list" count="5"/>
         </test>
     </tests>
 
     <help><![CDATA[
+
 Usage
 =====
 
 As input, the user provides one or more VCF files (Danecek *et al.* 2011), the desired number of SNPs to subsample per replicate VCF file, the number of replicate VCF files to generate, and a minimum SNP number threshold that needs to be present in the input file for the subsampling to occur.
 
 For each input VCF file (which by assumption is representative of one population), 
-a) if its SNP number exceeds the MIN_SNP_NB threshold, the tool generates the NB_REPLICATE_VCF requested for each population.
-For each replicate VCF file,  the chosen SNP number (SUBSET_SNP_NB) are randomly selected from the polymorphic loci in the population considered.
-b) if the SNP number in the file is below MIN_SNP_NB, the original input VCF file(s) is(are) kept unchanged in a separate output collection for subsequent analyses. To disable the threshold and force subsampling regardless of SNP number, the user can set the MIN_SNP_NB to 0, for example in the case where the total number of SNPs per population is not known exactly.
+
+1. if the SNP number exceeds the MIN_SNP_NB threshold, the tool generates the requested NB_REPLICATE_VCF of VCF files for each population. Then in each replicate VCF file, if the user picks the 'polymorphic loci' option, the tool randomly selects only polymorphic loci in the population under consideration. Otherwise, loci are selected randomly from all loci in the VCF file, with some loci potentially monomorphic in the population.
+
+2. if the SNP number in the file is below MIN_SNP_NB, the original input VCF file(s) is(are) kept unchanged for subsequent analyses and a '_full' suffix is added. To disable the threshold and force subsampling regardless of SNP number, the user can set the MIN_SNP_NB to 0, for example in the case where total number of SNPs per population is not known exactly.
 
 NB:  Please note that the number of polymorphic loci in each population can be less than in all populations, especially for rare variants. This can explain why replicates are not produced in some cases.
 

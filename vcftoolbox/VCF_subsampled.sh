@@ -49,9 +49,15 @@ vcf_subsampled(){
 
         # Check thresholds
         if (( total_snps <= MIN_SNP_NB )); then
-            echo "$base_name ignored: SNPs=$total_snps < thresholds"
-            local output_vcf="$vcf_dir_sub/${base_name}_full.vcf"
-            cp "$vcf" "$output_vcf"
+            if [[ "$POLY" == "true" ]]; then
+                echo "$base_name ignored: polymocphic SNPs=$total_snps < thresholds ($MIN_SNP_NB)"
+                local output_vcf="$vcf_dir_sub/${base_name}_full.vcf"
+                cp "$vcf" "$output_vcf"
+            else
+                echo "$base_name ignored: SNPs=$total_snps < thresholds ($MIN_SNP_NB)"
+                local output_vcf="$vcf_dir_sub/${base_name}_full.vcf"
+                cp "$vcf" "$output_vcf"
+            fi
             return
         fi
 
