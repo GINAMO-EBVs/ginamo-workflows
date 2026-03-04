@@ -1,0 +1,16 @@
+name: genetics_summary_statistics
+owner: genomics
+description: 
+homepage_url: https://github.com/lauramtzan/GINAMO/  !!! complete !!!
+long_description: |
+  
+remote_repository_url: https://github.com/galaxyecology/tools-ecology/tree/master/tools/    !!! complete !!!!
+type: unrestricted
+categories:
+- Genomics 
+auto_tool_repositories:
+  name_template: "{{ tool_id }}"
+  description_template: "{{ tool_name }}"
+
+
+!!! see suite tools !!!!
