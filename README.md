@@ -4,5 +4,7 @@ This repository contains the different sources code of Galaxy Tools required for
 The workflows will be available on Galaxy Ecology Platform : https://ecology.usegalaxy.eu/
 (*add description and link*).
 
+
 (*add guidelines to use correctly Galaxy Ecology and how to use the workflows*)
+
 (*add links to Galaxy Guidelines and future GINAMO workflows guidelines*)
