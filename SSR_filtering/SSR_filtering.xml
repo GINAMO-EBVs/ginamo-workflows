@@ -1,0 +1,210 @@
+<tool id="ssrfilter" name="SSR microsatellite filter" version="0.1.0">
+    <description>
+        filter microsatellite data by missing data (individuals and loci), null alleles and linked loci
+    </description>
+
+    <requirements>
+        <requirement type="package" version="4.3.3">r-base</requirement>
+        <requirement type="package" version="2.9.8">r-poppr</requirement>
+        <requirement type="package" version="2.1.11">r-adegenet</requirement>
+        <requirement type="package" version="0.5_11">r-hierfstat</requirement>
+        <requirement type="package" version="1.2.2">r-genepop</requirement>
+    </requirements>
+
+    <command detect_errors="exit_code"><![CDATA[
+mkdir -p filter_output &&
+mkdir -p summary &&
+mkdir -p figure_output &&
+
+Rscript '$__tool_directory__/SSR_filtering.R'
+        '$input_data'
+        '$input_data.element_identifier'
+        #if str($sec_ind_md.apply) == 'true':
+            '${sec_ind_md.ind_md}'
+            '${sec_ind_md.order}'
+        #else:
+            'NA' 'NA'
+        #end if
+        #if str($sec_ssr_md.apply) == 'true':
+            '${sec_ssr_md.ssr_md}'
+            '${sec_ssr_md.order}'
+        #else:
+            'NA' 'NA'
+        #end if
+        #if str($sec_null_allele.apply) == 'true':
+            '${sec_null_allele.low_quar}'
+            '${sec_null_allele.high_quar}'
+            '${sec_null_allele.multi}'
+            '${sec_null_allele.order}'
+        #else:
+            'NA' 'NA' 'NA' 'NA'
+        #end if
+        #if str($sec_ld.apply) == 'true':
+            '${sec_ld.threshold_pval}'
+            '${sec_ld.order}'
+        #else:
+            'NA' 'NA'
+        #end if
+]]></command>
+
+    <inputs>
+    <param name="input_data" type="data" format="tabular,txt" label="Upload your SSR genotype file"
+        help="Tabular file with individuals in rows and loci in columns. See format below."/>
+
+    <section name="sec_ind_md" title="Remove individuals with too much missing data" expanded="false">
+        <param name="apply" type="boolean" checked="false"
+            label="Apply this filter"/>
+        <param name="order" type="integer" value="1" min="1" max="4"
+            label="Filter order"
+            help="Order in which this filter is applied relative to others (1 = first)."/>
+        <param name="ind_md" type="float" value="0.30" min="0" max="1"
+            label="Maximum proportion of missing data allowed per individual"/>
+    </section>
+
+    <section name="sec_ssr_md" title="Remove loci with too much missing data" expanded="false">
+        <param name="apply" type="boolean" checked="false"
+            label="Apply this filter"/>
+        <param name="order" type="integer" value="2" min="1" max="4"
+            label="Filter order"/>
+        <param name="ssr_md" type="float" value="0.30" min="0" max="1"
+            label="Maximum proportion of missing data per locus"/>
+    </section>
+
+    <section name="sec_null_allele" title="Filter null alleles (paralogues)" expanded="false">
+        <param name="apply" type="boolean" checked="false"
+            label="Apply this filter"/>
+        <param name="order" type="integer" value="3" min="1" max="4"
+            label="Filter order"/>
+        <param name="low_quar" type="float" value="0.25" min="0" max="1"
+            label="Lower quartile for IQR method"/>
+        <param name="high_quar" type="float" value="0.75" min="0" max="1"
+            label="Upper quartile for IQR method"/>
+        <param name="multi" type="float" value="1.5" min="0"
+            label="IQR multiplier"/>
+    </section>
+
+    <section name="sec_ld" title="Filter linked loci (linkage disequilibrium)" expanded="false">
+        <param name="apply" type="boolean" checked="false"
+            label="Apply this filter"/>
+        <param name="order" type="integer" value="4" min="1" max="4"
+            label="Filter order"/>
+        <param name="threshold_pval" type="float" value="0.05" min="0" max="1"
+            label="P-value threshold for LD test"/>
+    </section>
+</inputs>
+
+    <outputs>
+        <data name="filtered_data" format="txt" label="${tool.name}">
+            <discover_datasets pattern="(?P&lt;designation&gt;.+)\.txt$" directory="filter_output" visible="true" assign_primary_output="true"/>
+        </data>
+        
+        <data name="filtering_summary" format="tabular" label="Filtering summary table">
+            <discover_datasets pattern="(?P&lt;designation&gt;.+)\.txt$" directory="summary" visible="true"/>
+        </data>
+
+        <data name="boxplot_fis"
+                from_work_dir="figure_output/boxplot_fis_null_allele.png"
+                format="png"
+                label="Fis distribution boxplot — null allele filter">
+            <filter>sec_null_allele['apply']</filter>
+        </data>
+    </outputs>
+
+    <tests>
+        
+    </tests>
+
+    <help><![CDATA[
+Usage
+=====
+
+This tool filters microsatellite (SSR) genotype data by applying up to four filters in a user-defined order. The user selects which filters to apply and their sequence. Each filter has its own set of parameters accessible in the corresponding section below.
+
+**Available filters:**
+
+1. **Remove individuals with too much missing data** — removes individuals whose proportion of missing genotypes exceeds the defined threshold.
+2. **Remove loci with too much missing data** — removes SSR loci whose proportion of missing genotypes across individuals exceeds the defined threshold.
+3. **Filter null alleles (paralogues)** — estimates the null allele frequency at each locus using the selected method (Brookfield 1, Brookfield 2 or Chakraborty). Loci exceeding the frequency threshold are removed, flagged or corrected.
+4. **Filter linked loci (linkage disequilibrium)** — identifies pairs of loci in significant linkage disequilibrium (LD) using the selected test and multiple testing correction. One locus per linked pair is removed according to the selected criterion.
+
+The order of filter application follows the order selected in the filter list.
+
+Input format
+============
+
+**SSR genotype file (tab-separated):**
+
+::
+
+    Ind     Pop     Loc1    Loc2    Loc3
+    ind1    pop1    120/124 200/202 150/150
+    ind2    pop1    120/120 202/204 150/152
+    ind3    pop2    124/126 200/200 152/152
+    ind4    pop2    NA      200/202 150/152
+
+Missing genotypes should be encoded as ``NA``.
+
+Outputs
+=======
+
+- **Filtered SSR dataset** — genotype table after applying all selected filters, in the same format as the input.
+- **Filtering log** — step-by-step log detailing which individuals or loci were removed at each filter step.
+- **Filtering summary report** — tabular summary of the number of individuals and loci before and after each filter step, with retention rates.
+
+    ]]></help>
+
+    <citations>
+        <citation type="bibtex">
+            @Manual{adegenet,
+  title        = {adegenet: Exploratory Analysis of Genetic and Genomic Data},
+  author       = {Thibaut Jombart and Zhian N. Kamvar and others},
+  year         = {2022},
+  note         = {R package version 2.1.11},
+  doi          = {10.32614/CRAN.package.adegenet},
+  url          = {https://github.com/thibautjombart/adegenet},
+}
+        </citation>
+        <citation type="bibtex">
+            @Manual{hierfstat,
+  title        = {hierfstat: Estimation and Tests of Hierarchical F-Statistics},
+  author       = {Jerome Goudet},
+  year         = {2005},
+  note         = {R package version 0.5-11},
+  doi          = {10.1111/j.1471-8286.2004.00828.x},
+}
+        </citation>
+        <citation type="bibtex">
+            @article{brookfield1996,
+  author  = {Brookfield, J.F.Y.},
+  title   = {A simple new method for estimating null allele frequency from heterozygote deficiency},
+  journal = {Molecular Ecology},
+  year    = {1996},
+  volume  = {5},
+  number  = {3},
+  pages   = {453--455},
+  doi     = {10.1111/j.1365-294X.1996.tb00336.x},
+}
+        </citation>
+        <citation type="bibtex">
+            @article{chakraborty1992,
+  author  = {Chakraborty, R. and De Andrade, M. and Daiger, S.P. and Budowle, B.},
+  title   = {Apparent heterozygote deficiencies observed in DNA typing data and their implications in forensic applications},
+  journal = {Annals of Human Genetics},
+  year    = {1992},
+  volume  = {56},
+  pages   = {45--57},
+  doi     = {10.1111/j.1469-1809.1992.tb01128.x},
+}
+        </citation>
+        <citation type="bibtex">
+            @Manual{dplyr,
+  title        = {dplyr: A Grammar of Data Manipulation},
+  author       = {Hadley Wickham and Romain François and Lionel Henry and Kirill Müller},
+  year         = {2016},
+  note         = {R package version 1.2.0},
+  doi          = {10.32614/CRAN.package.dplyr},
+  url          = {https://dplyr.tidyverse.org},
+}
+        </citation>
+    </citations>
+</tool>
