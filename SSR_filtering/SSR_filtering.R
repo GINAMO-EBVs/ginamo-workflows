@@ -1,8 +1,8 @@
 # Load packages
 library(adegenet)
 library(poppr)
-library(hierfstat)
 library(genepop)
+library(hierfstat)
 
 #Load arguments
 args <- commandArgs(trailingOnly = TRUE)
@@ -32,7 +32,7 @@ filter_list <- list(
   list(name = "ind_md_ssr",       order = order_ind,  active = !is.na(order_ind)),
   list(name = "ssr_md_filtering", order = order_ssr,  active = !is.na(order_ssr)),
   list(name = "null_allele",      order = order_null, active = !is.na(order_null)),
-  list(name = "LD_filtering",     order = order_ld,   active = !is.na(order_ld))
+  list(name = "LD_filtering",     order = order_LD,   active = !is.na(order_LD))
 )
 
 active_filters <- Filter(function(f) f$active, filter_list)
@@ -177,7 +177,7 @@ genind_to_genepop <- function(genind_file, file) {
 #               Deletes the locus involved  in the most pairs with significant p-values.
 #########################################################################################
 
-LD_filtering <- function(genpop_file_path, threshold_pval, genind_file) { 
+LD_filtering <- function(genepop_file_path, threshold_pval, genind_file) { 
   
   #Exact test from genepop package
   test_LD(genepop_file_path, outputFile = "LD_test.txt")
@@ -232,29 +232,15 @@ LD_filtering <- function(genpop_file_path, threshold_pval, genind_file) {
 
   # Delete loci in the genind
   loci_to_keep <- setdiff(locNames(genind_file), loci_to_remove)
-  genind_nLD <- genind_file[loc = loci_a_garder]
+  genind_nLD <- genind_file[loc = loci_to_keep]
 
   return(genind_nLD)
 
 }
 
-pops <- pop(genind_nLD)
-  df <- genind2df(genind_nLD, sep = "/", usepop = FALSE)
-
-  df <- data.frame(
-    Ind = rownames(df),
-    Pop = pop(genind_nLD),
-    df,
-    row.names = NULL
-  )
-
-  return(df)
-
-
 ########################
 # Main execution
 # Conversion et test LD sur le genind final (après filtrage missing data et allèles nuls)
-genind_to_genepop(genind_sans_outliers, "genepop_SSR_filtering.txt")
 ##########################
 
 # Summary table
@@ -302,8 +288,9 @@ for (step in filters) {
 
 # Write filtering summary table
 summary_table <- do.call(rbind, summary_rows)
+output_summary <- paste0("summary/", input_name,"_summary.txt")
 write.table(summary_table,
-            file      = "summary/filtering_summary.txt",
+            file      = output_summary,
             sep       = "\t",
             row.names = FALSE,
             quote     = FALSE)
