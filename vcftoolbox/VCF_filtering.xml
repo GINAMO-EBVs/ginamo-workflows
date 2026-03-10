@@ -1,0 +1,154 @@
+<tool id="vcf_filtering_MAC" name="VCF filtering" version="0.1.0" python_template_version="3.5">
+    <description>
+
+    </description>
+    <requirements>
+        <requirement type="package" version="1.22">bcftools</requirement>
+        <requirement type="package" version="0.1.17">vcftools</requirement>
+    </requirements>
+
+<command detect_errors="exit_code"><![CDATA[
+    mkdir -p vcf_filtered_tmp &&
+    mkdir -p vcf_filtered_directory &&
+    mkdir -p summary &&
+
+    bash '$__tool_directory__/VCF_filtering.sh'
+        --input '${vcf_input}'
+        --name '${vcf_input.element_identifier}'
+        --order '${filter_order}'
+        --max-missing-ind '${filter_ind_missing_data.MAX_MISSING_IND}'
+        --max-missing-loci '${filter_loci_missing.MAX_MISSING_LOCI}'
+        --min-gq '${filter_GQ.min_gq}'
+        --min-dp '${filter_DP.MIN_DP}'
+        --min-mac '${filter_mac.MAC}'
+        --max-ho '${filter_het.MAX_Ho}'
+]]></command>
+
+    <inputs>
+        <param name="vcf_input" type="data" format="vcf" label="Upload your VCF file"
+            help="File containing DNA sequence data in VCF format. You can upload a simple file, multiple files or a dataset collection"/>
+
+        <param name="filter_order" type="select" multiple="true" display="checkboxes"
+            label="Select and order the filters to apply"
+            help="Only the selected filters will be applied, in the exact order chosen here.">
+            <option value="A">A: Individuals with missing data</option>
+            <option value="B">B: Loci with missing data</option>
+            <option value="C">C: Genotype quality (GQ)</option>
+            <option value="D">D: Depth coverage (DP)</option>
+            <option value="E">E: Biallelic SNPs only</option>
+            <option value="F">F: Minor allele count (MAC)</option>
+            <option value="G">G: Heterozygosity</option>
+        </param>
+
+        <section name="filter_ind_missing_data" title="[A] Individuals with missing data" expanded="true">
+            <param name="MAX_MISSING_IND" type="float" value="0.2" min="0.0" max="1.0"
+                   label="Maximum missing data per individual (MAX_MISSING_IND)"
+                   help="Maximum fraction of missing genotypes allowed per individual." />
+        </section>
+
+        <section name="filter_loci_missing" title="[B] Loci with missing data" expanded="true">
+            <param name="MAX_MISSING_LOCI" type="float" min="0" max="1" value="0.20"
+                   label="Maximum missing data per locus (MAX_MISSING_LOCI)"
+                   help="Maximum fraction of missing genotypes allowed per locus." />
+        </section>
+
+        <section name="filter_GQ" title="[C] Genotype quality (GQ)" expanded="true">
+            <param name="min_gq" type="integer" value="20" min="0"
+                   label="GQ minimum"
+                   help="Genotypes with a GQ below this value will be set to missing." />
+        </section>
+
+        <section name="filter_DP" title="[D] Depth coverage (DP)" expanded="true">
+            <param name="MIN_DP" type="integer" value="6" min="1"
+                   label="Minimum read depth (MIN_DP)"
+                   help="Minimum read depth (DP) per genotype required to retain it.
+                   Typical values depend on sequencing coverage: 1-5 for permissive filtering, 10-20 for standard filtering, and >=30 for stringent filtering." />
+        </section>
+
+        <section name="filter_mac" title="[F] Minor allele count (MAC)" expanded="true">
+            <param name="MAC" type="integer" value="2" min="0"
+                   label="Minimum minor allele count per SNP (MIN_MAC)"
+                   help="Minimum number of minor alleles required for a locus to be retained." />
+        </section>
+
+        <section name="filter_het" title="[G] Heterozygosity" expanded="true">
+            <param name="MAX_Ho" type="float" min="0" max="1" value="0.6"
+                   label="Maximum observed heterozygosity per SNP"
+                   help="Maximum proportion of observed heterozygotes allowed to retain a variant. Used to detect paralogues and genotyping errors." />
+        </section>
+
+    </inputs>
+
+    <outputs>
+        <data name="vcf_filtered" format="vcf" label="${tool.name}">
+                <discover_datasets pattern="(?P&lt;designation&gt;.+)\.vcf" directory="vcf_filtered_directory" visible="true" assign_primary_output="true"/>
+        </data>
+        <data name="summary" from_work_dir="summary/summary.tabular" format="tabular" label="Filtering : Number of SNPs and individuals"/>
+    </outputs>
+
+    <tests>
+
+    </tests>
+
+    <help><![CDATA[
+
+
+    ]]></help>
+
+    <citations>
+        <citation type="bibtex">
+        @article{10.1093/gigascience/giab008,
+    author = {Danecek, Petr and Bonfield, James K and Liddle, Jennifer and Marshall, John and Ohan, Valeriu and Pollard, Martin O and Whitwham, Andrew and Keane, Thomas and McCarthy, Shane A and Davies, Robert M and Li, Heng},
+    title = "{Twelve years of SAMtools and BCFtools}",
+    journal = {GigaScience},
+    volume = {10},
+    number = {2},
+    year = {2021},
+    abstract = "{SAMtools and BCFtools are widely used programs for processing and analysing high-throughput sequencing data.}",
+    issn = {2047-217X},
+    doi = {10.1093/gigascience/giab008},
+    url = {https://doi.org/10.1093/gigascience/giab008},
+    note = {giab008},
+        }
+        </citation>
+
+        <citation type="bibtex">
+            @article{hemstrom2024next,
+  author={Hemstrom, William and Grummer, Jared A. and Luikart, Gordon and Beja-Pereira, Albano and Waples, Robin S. and Funk, W. Chris and Shafer, Aaron B. A. and Allendorf, Frederick W.},
+  title={Next-generation data filtering in the genomics era},
+  journal={Nature Reviews Genetics},
+  volume={25},
+  number={11},
+  pages={750--767},
+  year={2024},
+  doi={10.1038/s41576-024-00738-6},
+  url={https://doi.org/10.1038/s41576-024-00738-6}
+}
+        </citation>
+
+        <citation type="bibtex">
+            @article{Danecek2011,
+  author          = {Danecek, Petr and Auton, Adam and Abecasis, Goncalo and Albers, Cornelis A. and Banks, Erica and DePristo, Mark A. and Handsaker, Robert E. and Lunter, Gerton and Marth, Gabor T. and Sherry, Stephen T. and McVean, Gil and Durbin, Richard and {1000 Genomes Project Analysis Group}},
+  title           = {The variant call format and {VCF}tools},
+  journal         = {Bioinformatics},
+  volume          = {27},
+  number          = {15},
+  pages           = {2156-2158},
+  year            = {2011},
+  doi             = {10.1093/bioinformatics/btr330},
+  URL             = {https://doi.org/10.1093/bioinformatics/btr330},
+}
+        </citation>
+
+        <citation type="bibtex">
+        @manual{VCFv45,
+  title        = {The Variant Call Format (VCF) Specification, Version 4.5},
+  author       = {{HTS-specs team}},
+  organization = {Global Alliance for Genomics and Health},
+  year         = {2024},
+  url          = {https://samtools.github.io/hts-specs/VCFv4.5.pdf},
+  note         = {Accessed: 2025-02-11}
+}
+        </citation>
+    </citations>
+</tool>
