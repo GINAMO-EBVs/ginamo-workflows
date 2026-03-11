@@ -108,20 +108,7 @@ See also examples of VCF formats in :  https://samtools.github.io/hts-specs/VCFv
   url={https://doi.org/10.1038/s41576-024-00738-6}
 }
         </citation>
-        <citation type="bibtex">
-            @article{Danecek2011,
-  author          = {Danecek, Petr and Auton, Adam and Abecasis, Goncalo and Albers, Cornelis A. and Banks, Erica and DePristo, Mark A. and Handsaker, Robert E. and Lunter, Gerton and Marth, Gabor T. and Sherry, Stephen T. and McVean, Gil and Durbin, Richard and {1000 Genomes Project Analysis Group}},
-  title           = {The variant call format and {VCF}tools},
-  journal         = {Bioinformatics},
-  volume          = {27},
-  number          = {15},
-  pages           = {2156-2158},
-  year            = {2011},
-  doi             = {10.1093/bioinformatics/btr330},
-  URL             = {https://doi.org/10.1093/bioinformatics/btr330},
-  eprint          = {https://academic.oup.com/bioinformatics/article-pdf/27/15/2156/600788/btr330.pdf},
-}
-        </citation>
+
     <citation type="bibtex">
         @manual{VCFv45,
   title        = {The Variant Call Format (VCF) Specification, Version 4.5},

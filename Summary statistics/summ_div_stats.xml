@@ -4,7 +4,7 @@
     </description>
 
     <requirements>
-        <requirement type="package" version="1.1.4">r-dplyr</requirement>
+        <requirement type="package" version="1.2.0">r-dplyr</requirement>
         <requirement type="package" version="1.7_23">r-ade4</requirement>
         <requirement type="package" version="1.15.0">r-vcfr</requirement>
         <requirement type="package" version="2.1.11">r-adegenet</requirement>
