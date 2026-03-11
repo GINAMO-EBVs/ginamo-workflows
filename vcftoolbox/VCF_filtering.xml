@@ -1,6 +1,6 @@
 <tool id="vcf_filtering" name="VCF filtering" version="0.1.0" python_template_version="3.5">
     <description>
-
+        of individuals and variants.
     </description>
     <requirements>
         <requirement type="package" version="1.22">bcftools</requirement>
