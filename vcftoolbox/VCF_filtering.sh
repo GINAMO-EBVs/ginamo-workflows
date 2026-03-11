@@ -136,6 +136,8 @@ vcf_filtering_SNP_missingdata(){
     local vcf="$1"
     local MAX_MISSING_LOCI="$2"
 
+        echo ">>> [Step $STEP] Filter B: Loci missing data (threshold: $MAX_MISSING_LOCI)"
+
         ##### Remove SNPs with a high amount of missing data and singletons #####
         local output_file_gz="${tmp_dir}/${base_name}_SNPmd.vcf.gz" #Final output file - gzip
         local output_file="${tmp_dir}/${base_name}_SNPmd.vcf" #Final output file
@@ -177,10 +179,14 @@ vcf_filtering_gen_qual(){
     local vcf="$1"
     local MIN_GQ="$2"
 
+        echo ">>> [Step $STEP] Filter C: Genotype quality (threshold: $MIN_GQ)"
+
         ###### Filtering variants based on genotype quality (GQ))######
         local output_file="${tmp_dir}/${base_name}_GQ.vcf.gz"
         local output_file_n="${tmp_dir}/${base_name}_nGQ.vcf"
         local final_vcf
+
+        local gq_params="MIN_GQ=${MIN_GQ}"
 
         if grep -q "##INFO=<ID=GQ" "${vcf}"; then
             bcftools filter -S . -e "INFO/GQ<${MIN_GQ}" -O z -o "$output_file" "$vcf"
@@ -196,6 +202,7 @@ vcf_filtering_gen_qual(){
             echo "No genotype quality (GQ) field found in $base_name"
             cp "$vcf" "$output_file_n" #Allows the pipeline to continue without filtering
             final_vcf="$output_file_n"
+            gq_params="No GQ field found"
         fi
 
         ##### Verify that filtered VCF is not empty ######
@@ -210,7 +217,7 @@ vcf_filtering_gen_qual(){
         fi
 
         CURRENT_VCF="$final_vcf"
-        log_stats "$STEP" "C_GQ" "MIN_GQ=${MIN_GQ}" "$CURRENT_VCF"  
+        log_stats "$STEP" "C_GQ" "${gq_params}" "$CURRENT_VCF"
 }
 
 #######################################################################
@@ -223,11 +230,16 @@ vcf_filtering_depth(){
     local vcf="$1"
     local MIN_DP="$2"
 
+    echo ">>> [Step $STEP] Filter D: Depth coverage (threshold: $MIN_DP)"
+
     ###### Filtering min and maximum read depth ######
     local output_file="${tmp_dir}/${base_name}_DP.vcf.gz"
     local output_file_n="${tmp_dir}/${base_name}_DP.vcf"
 
     #Estimate maximum reading depth as twice the average reading depth
+
+    local dp_params="MIN_DP=${MIN_DP}"
+    local MAX_RD=""
 
     if grep -q "##FORMAT=<ID=DP" "$vcf"; then
         MAX_RD=$(bcftools query -f '[%DP\n]' "$vcf" | \
@@ -236,6 +248,7 @@ vcf_filtering_depth(){
         bcftools filter -S . -e "FMT/DP<=${MIN_DP} | FMT/DP>=${MAX_RD}" -O z -o "$output_file" "$vcf"
         gunzip "$output_file"
         final_vcf="${output_file%.gz}"
+        dp_params="MIN_DP=${MIN_DP};MAX_DP=${MAX_RD}"
 
     elif grep -q -e "##INFO=<ID=DP" "$vcf"; then
         MAX_RD=$(bcftools query -f '[%DP\n]' "$vcf" | \
@@ -244,11 +257,13 @@ vcf_filtering_depth(){
         bcftools filter -S . -e "INFO/DP<=${MIN_DP} | INFO/DP>=${MAX_RD}" -O z -o "$output_file" "$vcf"
         gunzip "$output_file"
         final_vcf="${output_file%.gz}"
+        dp_params="MIN_DP=${MIN_DP};MAX_DP=${MAX_RD}"
             
     else
         echo "No read depth data for $vcf file"
         cp "$vcf" "$output_file_n"
         final_vcf="${output_file_n}"
+        dp_params="No DP field found"
     fi
     
     ##### Verify that filtered VCF is not empty ######
@@ -263,7 +278,7 @@ vcf_filtering_depth(){
         fi
 
         CURRENT_VCF="$final_vcf"
-        log_stats "$STEP" "D_DP" "MIN_DP=${MIN_DP};MAX_DP=${MAX_RD}" "$CURRENT_VCF"
+        log_stats "$STEP" "D_DP" "${dp_params}" "$CURRENT_VCF"
 }
 
 #######################################################################
@@ -274,6 +289,8 @@ vcf_filtering_depth(){
 vcf_filtering_biallelic(){
     ##### Parameters #####
     local vcf="$1"
+
+    echo ">>> [Step $STEP] Filter E: Biallelic SNPs"
 
     ##### Keep biallelic SNPs only #####
     local output_file="${tmp_dir}/${base_name}_biallelicSNPs.vcf"
@@ -306,6 +323,8 @@ vcf_filtering_MAC(){
     ##### Parameters #####
     local vcf="$1"
     local MAC="$2"
+        
+        echo ">>> [Step $STEP] Filter F: Minor allele count (threshold: $MAC)"
 
         #Final output file
         local output_file_gz="${tmp_dir}/${base_name}_MAC.vcf.gz"
@@ -339,6 +358,8 @@ vcf_filtering_heterozygosity(){
     ##### Parameters #####
     local vcf="$1"
     local MAX_Ho="$2"
+
+        echo ">>> [Step $STEP] Filter G: Heterozygosity (threshold: $MAX_Ho)"
 
         ##### Heterozygosity filter #####
         local output_file="${tmp_dir}/${base_name}_Ho.vcf"
