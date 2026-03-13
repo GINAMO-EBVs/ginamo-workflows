@@ -8,6 +8,7 @@ library(mmod)
 library(ggplot2)
 library(tibble)
 library(viridis)
+library(tidyr)
 
 #Load arguments
 args <- commandArgs(trailingOnly = TRUE)
@@ -204,16 +205,14 @@ average_pairwise_by_pop <- function(matrices_list, dataset_name) {
   stats_diff <- names(matrices_list)  # only contains selected stats
 
   # Get population labels from first matrix
-  labels <- attr(matrices_list[["fst"]], "Labels")
+  labels <- attr(matrices_list[[stats_diff[1]]], "Labels")
   
   # Initialize lists to store results
   pops_list <- c()
   fst_list   <- if (calc_fst)   c() else NULL
   gst_list   <- if (calc_gst)   c() else NULL
   jost_list  <- if (calc_djost) c() else NULL
-  
-  for (pop in labels) {
-    mean_values <- c()
+
     
     for (pop in labels) {
     pops_list <- c(pops_list, pop)

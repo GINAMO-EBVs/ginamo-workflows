@@ -32,9 +32,9 @@
         <help><![CDATA[
 Usage
 =====
-As input, the user provides a table containing a NeLD column.
+As input, the user provides a table containing a NeLD column and the number of chromosomes for the species.
 
-The tool computes a correction from pseudoreplication using the following equation (Waples *et al.* 2016):
+The tool computes a correction for pseudoreplication using the following equation (Waples *et al.* 2016):
 
 .. math::
 
