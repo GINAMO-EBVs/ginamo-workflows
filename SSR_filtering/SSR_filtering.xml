@@ -1,6 +1,6 @@
-<tool id="ssrfilter" name="SSR microsatellite filter" version="0.1.0">
+<tool id="ssrfilter" name="Filtering SSR" version="0.1.0">
     <description>
-        filter microsatellite data by missing data (individuals and loci), null alleles and linked loci
+        for missing data (individuals and loci), null alleles and linked loci.
     </description>
 
     <requirements>
@@ -8,7 +8,7 @@
         <requirement type="package" version="2.9.8">r-poppr</requirement>
         <requirement type="package" version="2.1.11">r-adegenet</requirement>
         <requirement type="package" version="0.5_11">r-hierfstat</requirement>
-        <requirement type="package" version="1.2.2">r-genepop</requirement>
+        <requirement type="package" version="1.2.11">genepop</requirement>
     </requirements>
 
     <command detect_errors="exit_code"><![CDATA[
@@ -17,64 +17,43 @@
         mkdir -p figure_output &&
 
         Rscript '$__tool_directory__/SSR_filtering.R'
-            '$input_data'
-            '$input_data.element_identifier'
-            #if str($sec_ind_md.apply) == 'true':
-                '${sec_ind_md.ind_md}'
-                '${sec_ind_md.order}'
-            #else:
-                'NA' 'NA'
-            #end if
-            #if str($sec_ssr_md.apply) == 'true':
-                '${sec_ssr_md.ssr_md}'
-                '${sec_ssr_md.order}'
-            #else:
-                'NA' 'NA'
-            #end if
-            #if str($sec_null_allele.apply) == 'true':
-                '${sec_null_allele.low_quar}'
-                '${sec_null_allele.high_quar}'
-                '${sec_null_allele.multi}'
-                '${sec_null_allele.order}'
-            #else:
-                'NA' 'NA' 'NA' 'NA'
-            #end if
-            #if str($sec_ld.apply) == 'true':
-                '${sec_ld.threshold_pval}'
-                '${sec_ld.order}'
-            #else:
-                'NA' 'NA'
-            #end if
+            --input '${input_data}'
+            --name '${input_data.element_identifier}'
+            --order '${filter_order}'
+            --ind-md '${filter_ind_md.ind_md}'
+            --ssr-md '${filter_ssr_md.ssr_md}'
+            --low-quar '${filter_null_allele.low_quar}'
+            --high-quar '${filter_null_allele.high_quar}'
+            --multi '${filter_null_allele.multi}'
+            --threshold-pval '${filter_ld.threshold_pval}'
+
     ]]></command>
 
 <inputs>
     <param name="input_data" type="data" format="tabular,txt" label="Upload your SSR genotype file"
         help="Tabular file with individuals in rows and loci in columns. See format below."/>
 
-    <section name="sec_ind_md" title="Remove individuals with too much missing data" expanded="false">
-        <param name="apply" type="boolean" checked="false"
-            label="Apply this filter"/>
-        <param name="order" type="integer" value="1" min="1" max="4"
-            label="Filter order"
-            help="Order in which this filter is applied relative to others (1 = first)."/>
+    <param name="filter_order" type="select" multiple="true" display="checkboxes"
+        label="Select and order the filters to apply"
+        help="Only the selected filters will be applied, in the exact order chosen here.">
+        <option value="A">A: Individuals with missing data </option>
+        <option value="B">B: Loci with missing data</option>
+        <option value="C">C: Null alleles (paralogues) </option>
+        <option value="D">D: Linked loci (Exact test with Genepop) </option>
+    </param>
+
+    
+    <section name="filter_ind_md" title="[A] Individuals with missing data" expanded="false">
         <param name="ind_md" type="float" value="0.30" min="0" max="1"
-            label="Maximum proportion of missing data allowed per individual"/>
+            label="Maximum of missing data allowed per individual (MAX_MISSING_IND)"/>
     </section>
 
-    <section name="sec_ssr_md" title="Remove loci with too much missing data" expanded="false">
-        <param name="apply" type="boolean" checked="false"
-            label="Apply this filter"/>
-        <param name="order" type="integer" value="2" min="1" max="4"
-            label="Filter order"/>
+    <section name="filter_ssr_md" title="[B] Loci with missing data" expanded="false">
         <param name="ssr_md" type="float" value="0.30" min="0" max="1"
-            label="Maximum proportion of missing data per locus"/>
+            label="Maximum of missing allowed data per locus (MAX_MISSING_LOCI)"/>
     </section>
 
-    <section name="sec_null_allele" title="Filter null alleles (paralogues)" expanded="false">
-        <param name="apply" type="boolean" checked="false"
-            label="Apply this filter"/>
-        <param name="order" type="integer" value="3" min="1" max="4"
-            label="Filter order"/>
+    <section name="filter_null_allele" title="[C] Null alleles (paralogues)" expanded="false">
         <param name="low_quar" type="float" value="0.25" min="0" max="1"
             label="Lower quartile for IQR method"/>
         <param name="high_quar" type="float" value="0.75" min="0" max="1"
@@ -83,11 +62,7 @@
             label="IQR multiplier"/>
     </section>
 
-    <section name="sec_ld" title="Filter linked loci (linkage disequilibrium)" expanded="false">
-        <param name="apply" type="boolean" checked="false"
-            label="Apply this filter"/>
-        <param name="order" type="integer" value="4" min="1" max="4"
-            label="Filter order"/>
+    <section name="filter_ld" title="[D] Linked loci (Exact test with Genepop)" expanded="false">
         <param name="threshold_pval" type="float" value="0.05" min="0" max="1"
             label="P-value threshold for LD test"/>
     </section>
@@ -98,54 +73,39 @@
             <discover_datasets pattern="(?P&lt;designation&gt;.+)\.txt$" directory="filter_output" visible="true" assign_primary_output="true"/>
         </data>
         
-        <data name="filtering_summary" format="tabular" label="Filtering summary table">
-            <discover_datasets pattern="(?P&lt;designation&gt;.+)\.txt$" directory="summary" visible="true"/>
-        </data>
+        <data name="filtering_summary" format="tabular" from_work_dir="summary/filtering_summary.txt" label=" Filtering: Number of SNPs and individuals"/>
 
         <data name="boxplot_fis" format="png" label="Fis distribution boxplot — null allele filter">
-            <discover_datasets pattern="(?P&lt;designation&gt;.+)\.png$" directory="figure_output" visible="true"/>
-            <filter>sec_null_allele['apply']</filter>
+            <discover_datasets pattern="(?P&lt;designation&gt;.+)\.png$" directory="figure_output" visible="true" assign_primary_output="true"/>
+            <filter>'C' in filter_order</filter>
         </data>
     </outputs>
 
     <tests>
-    <!-- Test 1: No filters applied -->
     <test expect_num_outputs="2">
         <param name="input_data" value="test_SSR.txt"/>
-        <output name="filtered_data" file="filter_output/test_SSR_filtered.txt" count="1"/>
-        <output name="filtering_summary" file="summary/test_SSR_summary.txt" count="1"/>
-    </test>
-
-    <!-- Test 2: Filter individuals with missing data -->
-    <test expect_num_outputs="2">
-        <param name="input_data" value="test_SSR.txt"/>
-        <section name="sec_ind_md">
-            <param name="apply" value="true"/>
-            <param name="order" value="1"/>
+        <param name="filter_order" value="A"/>
+        <section name="filter_ind_md">
             <param name="ind_md" value="0.30"/>
         </section>
         <output name="filtered_data" file="filter_output/test_SSR_filtered.txt" count="1"/>
         <output name="filtering_summary" file="summary/test_SSR_summary.txt" count="1"/>
     </test>
 
-    <!-- Test 3: Filter loci with missing data -->
     <test expect_num_outputs="2">
         <param name="input_data" value="test_SSR.txt"/>
-        <section name="sec_ssr_md">
-            <param name="apply" value="true"/>
-            <param name="order" value="1"/>
+        <param name="filter_order" value="B"/>
+        <section name="filter_ssr_md">
             <param name="ssr_md" value="0.30"/>
         </section>
         <output name="filtered_data" file="filter_output/test_SSR_filtered.txt" count="1"/>
         <output name="filtering_summary" file="summary/test_SSR_summary.txt" count="1"/>
     </test>
 
-    <!-- Test 4: Filter null alleles -->
     <test expect_num_outputs="3">
         <param name="input_data" value="test_SSR.txt"/>
-        <section name="sec_null_allele">
-            <param name="apply" value="true"/>
-            <param name="order" value="1"/>
+        <param name="filter_order" value="C"/>
+        <section name="filter_null_allele">
             <param name="low_quar" value="0.25"/>
             <param name="high_quar" value="0.75"/>
             <param name="multi" value="1.5"/>
@@ -155,43 +115,31 @@
         <output name="boxplot_fis" file="figure_output/test_SSR_fis_null_allele.png" count="1"/>
     </test>
 
-    <!-- Test 5: Filter linked loci (LD) -->
     <test expect_num_outputs="2">
         <param name="input_data" value="test_SSR.txt"/>
-        <section name="sec_ld">
-            <param name="apply" value="true"/>
-            <param name="order" value="1"/>
+        <param name="filter_order" value="D"/>
+        <section name="filter_ld">
             <param name="threshold_pval" value="0.05"/>
         </section>
         <output name="filtered_data" file="filter_output/test_SSR_filtered.txt" count="1"/>
         <output name="filtering_summary" file="summary/test_SSR_summary.txt" count="1"/>
     </test>
 
-    
-
-    <!-- Test 6: All filters combined, ordered -->
     <test expect_num_outputs="3">
         <param name="input_data" value="test_SSR.txt"/>
-        <section name="sec_ind_md">
-            <param name="apply" value="true"/>
-            <param name="order" value="1"/>
+        <param name="filter_order" value="A,B,D,C"/>
+        <section name="filter_ind_md">
             <param name="ind_md" value="0.30"/>
         </section>
-        <section name="sec_ssr_md">
-            <param name="apply" value="true"/>
-            <param name="order" value="2"/>
+        <section name="filter_ssr_md">
             <param name="ssr_md" value="0.30"/>
         </section>
-        <section name="sec_null_allele">
-            <param name="apply" value="true"/>
-            <param name="order" value="3"/>
+        <section name="filter_null_allele">
             <param name="low_quar" value="0.25"/>
             <param name="high_quar" value="0.75"/>
             <param name="multi" value="1.5"/>
         </section>
-        <section name="sec_ld">
-            <param name="apply" value="true"/>
-            <param name="order" value="4"/>
+        <section name="filter_ld">
             <param name="threshold_pval" value="0.05"/>
         </section>
         <output name="filtered_data" file="filter_output/test_SSR_filtered.txt" count="1"/>

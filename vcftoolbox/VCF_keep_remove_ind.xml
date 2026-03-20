@@ -1,6 +1,6 @@
 <tool id="vcf_keep_remove_individuals" name="Keep or remove selected individuals" version="@TOOL_VERSION@" profile="@PROFILE@">
     <description>
-        from a VCF.
+        from a VCF
     </description>
     
     <macros>
@@ -10,17 +10,17 @@
     <expand macro="requirements_bcftools"/>
 
     <required_files>
-        <include path="VCF_keep_remove_ind.R" />
+        <include path="VCF_keep_remove_ind.sh" />
     </required_files>
 
     <command detect_errors="exit_code"><![CDATA[
         mkdir -p vcf_directory &&
         
         bash '$__tool_directory__/VCF_keep_remove_ind.sh'
-            '${vcf_input}'
-            '${vcf_input.element_identifier}'
-            '$action'
-            '$list_ind'
+            --input '${vcf_input}'
+            --name '${vcf_input.element_identifier}'
+            --action '$action'
+            --list '$list_ind'
         ]]></command>
 
     <inputs>
@@ -32,7 +32,7 @@
         </param>
 
         <param name="list_ind" type="data" format="tabular,txt" label="List of individuals to be kept"
-            help="Individuals must be listed one per line.  If there are multiple VCF files, the individual list contain all individuals present in all VCF files. "/>
+            help="Individuals must be listed one per line."/>
     </inputs> 
 
     <outputs>

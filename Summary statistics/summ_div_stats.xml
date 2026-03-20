@@ -141,13 +141,19 @@
         <output name="gst_matrix" file="gst_pr_nei_matrix.txt" ftype="tabular"/>
         <output name="djost_matrix" file="jost_D_matrix.txt" ftype="tabular"/>
         <output name="fst_heatmap" ftype="png">
-            <assert_contents><has_size min="1000"/></assert_contents>
+            <assert_contents>
+                <has_size min="1000"/>
+            </assert_contents>
         </output>
         <output name="gst_heatmap" ftype="png">
-            <assert_contents><has_size min="1000"/></assert_contents>
+            <assert_contents>
+                <has_size min="1000"/>
+            </assert_contents>
         </output>
         <output name="djost_heatmap" ftype="png">
-            <assert_contents><has_size min="1000"/></assert_contents>
+            <assert_contents>
+                <has_size min="1000"/>
+            </assert_contents>
         </output>
     </test>
 
@@ -187,13 +193,19 @@
         <output name="gst_matrix" file="gst_pr_nei_matrix.txt" ftype="tabular"/>
         <output name="djost_matrix" file="jost_D_matrix.txt" ftype="tabular"/>
         <output name="fst_heatmap" ftype="png">
-            <assert_contents><has_size min="1000"/></assert_contents>
+            <assert_contents>
+                <has_size min="1000"/>
+            </assert_contents>
         </output>
         <output name="gst_heatmap" ftype="png">
-            <assert_contents><has_size min="1000"/></assert_contents>
+            <assert_contents>
+                <has_size min="1000"/>
+            </assert_contents>
         </output>
         <output name="djost_heatmap" ftype="png">
-            <assert_contents><has_size min="1000"/></assert_contents>
+            <assert_contents>
+                <has_size min="1000"/>
+            </assert_contents>
         </output>
     </test>
 </tests>
@@ -204,9 +216,9 @@ Usage
 
 As input, the user provides genetic data depending on the marker type selected. For SNPs, one or more VCF files (Danecek *et al.* 2011) and a population file (see format below). For SSRs, one or more tabular files containing genotypes and population information (see format below). The user selects the statistics they want to compute. 
 
-This tool computes standard genetic diversity statistics and differentiation indicies using several R packages (adegenet, hierfstat and mmod). It calculates observed and expected heterozygosity (Hobs, Hexp), allelic richness (Ar), and inbreeding coefficient (Fis) (Weir & Cockerham 1984). It also performs pairwise population comparisons to provide Fst (Weir & Cockerham 1984), Gst (Nei 1973) and Jost's D statistics (Jost 2008).
+This tool computes standard genetic diversity statistics and differentiation indicies using several R packages (adegenet, hierfstat and mmod). It calculates observed and expected heterozygosity (Hobs, Hexp), allelic richness (Ar), and an inbreeding coefficient (Fis) (Weir & Cockerham 1984). It also performs pairwise population comparisons to provide Fst (Weir & Cockerham 1984), Gst (Nei 1973) and Jost's D statistics (Jost 2008).
 
-The tool generate a summary table with results per population, the average across populations (mean) and the results for all individuals pooled (tot). Additionnally, it outputs the full pairwise diferentiation matrices in a dataset collection.
+The tool generates a summary table with results per population, the average across populations (mean) and the results for all individuals pooled (tot). Additionally, if the user chooses to compute pairwise values, the tool generates the full pairwise differentiation matrix for each pairwise statistic and a heatmap in png format.
 
 Examples files
 ==============
