@@ -25,7 +25,7 @@
             '$data_conditional.marker_type'
             '$data_conditional.input_data'
             '$data_conditional.input_data.element_identifier'
-            #if $data_conditional.marker_type == "snp":
+            #if $data_conditional.marker_type == "SNP":
                 '$data_conditional.indpop'
             #end if
             '$stats_selection.calc_heterozygosity'
@@ -39,18 +39,18 @@
     <inputs>
         <conditional name="data_conditional">
         <param name="marker_type" type="select" label="Select your data format">
-            <option value="snp" selected="true">SNP</option>
-            <option value="ssr">SSR</option>
+            <option value="SNP" selected="true">SNP</option>
+            <option value="SSR">SSR</option>
         </param>
         
-        <when value="snp">
+        <when value="SNP">
             <param name="input_data" type="data" format="vcf" label="Upload your VCF file"
                 help="File containing SNP data in VCF format. You can upload a simple file, multiple file or a dataset collection"/>
             <param name="indpop" type="data" format="tabular,txt" label="Upload your population file"
                 help="File containing individuals in the first column and their population in the second, separated by a tabulation character."/>
         </when>
         
-        <when value="ssr">
+        <when value="SSR">
             <param name="input_data" type="data" format="tabular,txt" label="Upload your SSR data file"
                 help="File containing SSR/microsatellite data in tabular format."/>
         </when>
@@ -106,7 +106,7 @@
     <!-- Test 1: SNP - stats de base (Hobs, Fis, Ar) sans differenciation -->
     <test expect_num_outputs="1">
         <conditional name="data_conditional">
-            <param name="marker_type" value="snp"/>
+            <param name="marker_type" value="SNP"/>
             <param name="input_data" value="test_vcf_filtered.vcf" ftype="vcf"/>
             <param name="indpop" value="test_indpop.txt" ftype="txt"/>
         </conditional>
@@ -124,7 +124,7 @@
     <!-- Test 2: SNP - toutes les stats incluant matrices de differenciation -->
     <test expect_num_outputs="7">
         <conditional name="data_conditional">
-            <param name="marker_type" value="snp"/>
+            <param name="marker_type" value="SNP"/>
             <param name="input_data" value="test_vcf_filtered.vcf" ftype="vcf"/>
             <param name="indpop" value="test_indpop.txt" ftype="txt"/>
         </conditional>
@@ -160,7 +160,7 @@
     <!-- Test 3: SSR - stats de base (Hobs, Fis, Ar) sans differenciation -->
     <test expect_num_outputs="1">
         <conditional name="data_conditional">
-            <param name="marker_type" value="ssr"/>
+            <param name="marker_type" value="SSR"/>
             <param name="input_data" value="test_SSR_filtered.txt" ftype="txt"/>
         </conditional>
         <section name="stats_selection">
@@ -177,7 +177,7 @@
     <!-- Test 4: SSR - toutes les stats incluant matrices de differenciation -->
     <test expect_num_outputs="7">
         <conditional name="data_conditional">
-            <param name="marker_type" value="ssr"/>
+            <param name="marker_type" value="SSR"/>
             <param name="input_data" value="test_SSR_filtered.txt" ftype="txt"/>
         </conditional>
         <section name="stats_selection">
@@ -271,183 +271,53 @@ See also examples of VCF formats in :  https://samtools.github.io/hts-specs/VCFv
     ]]></help>
     
     <citations>
-        <citation type="bibtex">
-            @Manual{dplyr,
-  title        = {dplyr: A Grammar of Data Manipulation},
-  author       = {Hadley Wickham and Romain François and Lionel Henry and Kirill Müller and Davis Vaughan and Posit Software, PBC},
-  year         = {2016},
-  note         = {R package version 0.5.0},
-  doi          = {10.32614/CRAN.package.dplyr},
-  url          = {https://dplyr.tidyverse.org},
-  publisher    = {Comprehensive R Archive Network (CRAN)},
-}
-        </citation>
-        <citation type="bibtex">
-            @Manual{adegenet,
-  title        = {adegenet: Exploratory Analysis of Genetic and Genomic Data},
-  author       = {Thibaut Jombart and Zhian N. Kamvar and Caitlin Collins and Roman Lustrik and Marie-Pauline Beugin and Brian J. Knaus and Peter Solymos and Vladimir Mikryukov and Klaus Schliep and Tiago Maié and Libor Morkovsky and Ismail Ahmed and Anne Cori and Federico Calboli and RJ Ewing and Frédéric Michaud and Rebecca DeCamp and Alexandre Courtiol and Lindsay V. Clark and Pavel Dimens and Max Coulter and Ivan Krylov},
-  year         = {2022},
-  note         = {R package version 2.1.1},
-  doi          = {10.32614/CRAN.package.adegenet},
-  url          = {https://github.com/thibautjombart/adegenet},
-  publisher    = {Comprehensive R Archive Network (CRAN)}
-}
-        </citation>
-
-        <citation type="bibtex">
-            @Manual{vcfR,
-  title        = {vcfR: Manipulate and Visualize VCF Data},
-  author       = {Brian J. Knaus and Niklaus J. Grunwald and Eric C. Anderson and David J. Winter and Zhian N. Kamvar and Javier F. Tabima},
-  year         = {2018},
-  note         = {R package version 1.8.0},
-  doi          = {10.32614/CRAN.package.vcfR},
-  url          = {https://github.com/knausb/vcfR},
-  publisher    = {Comprehensive R Archive Network (CRAN)},
-}
-        </citation>
+        <citation type="doi">10.32614/CRAN.package.dplyr</citation>
+        <citation type="doi">10.32614/CRAN.package.adegenet</citation>
+        <citation type="doi">10.32614/CRAN.package.vcfR</citation>
         
+        <citation type="doi">10.1093/bioinformatics/btr330</citation>
         <citation type="bibtex">
-            @article{Danecek2011,
-  author          = {Danecek, Petr and Auton, Adam and Abecasis, Goncalo and Albers, Cornelis A. and Banks, Erica and DePristo, Mark A. and Handsaker, Robert E. and Lunter, Gerton and Marth, Gabor T. and Sherry, Stephen T. and McVean, Gil and Durbin, Richard and {1000 Genomes Project Analysis Group}},
-  title           = {The variant call format and {VCF}tools},
-  journal         = {Bioinformatics},
-  volume          = {27},
-  number          = {15},
-  pages           = {2156-2158},
-  year            = {2011},
-  doi             = {10.1093/bioinformatics/btr330},
-  URL             = {https://doi.org/10.1093/bioinformatics/btr330},
-  eprint          = {https://academic.oup.com/bioinformatics/article-pdf/27/15/2156/600788/btr330.pdf},
-}
+            @manual{VCFv45,
+                title        = {The Variant Call Format (VCF) Specification, Version 4.5},
+                author       = {{HTS-specs team}},
+                organization = {Global Alliance for Genomics and Health},
+                year         = {2024},
+                url          = {https://samtools.github.io/hts-specs/VCFv4.5.pdf},
+                note         = {Accessed: 2025-02-11}
+            }
         </citation>
-    <citation type="bibtex">
-        @manual{VCFv45,
-  title        = {The Variant Call Format (VCF) Specification, Version 4.5},
-  author       = {{HTS-specs team}},
-  organization = {Global Alliance for Genomics and Health},
-  year         = {2024},
-  url          = {https://samtools.github.io/hts-specs/VCFv4.5.pdf},
-  note         = {Accessed: 2025-02-11}
-}
-    </citation>
 
-    <citation type="bibtex">
-        @article{DrayDufour2007,
-  author  = {Dray, Stéphane and Dufour, Anne-Béatrice},
-  title   = {The ade4 Package: Implementing the Duality Diagram for Ecologists},
-  journal = {Journal of Statistical Software},
-  year    = {2007},
-  volume  = {22},
-  number  = {4},
-  pages   = {1--20},
-  doi     = {10.18637/jss.v022.i04},
-  url     = {https://doi.org/10.18637/jss.v022.i04}
-}
-    </citation>
-    <citation type="bibtex">
-        @article{Goudet2005,
-  author  = {Goudet, J.},
-  title   = {Hierfstat, a package for R to compute and test hierarchical F-statistics},
-  journal = {Molecular Ecology Notes},
-  year    = {2005},
-  volume  = {5},
-  number  = {1},
-  pages   = {184--186},
-  doi     = {10.1111/j.1471-8286.2004.00828.x}
-}
-    </citation>
+        <citation type="doi">10.18637/jss.v022.i04</citation>
+        <citation type="doi">10.1111/j.1471-8286.2004.00828.x</citation>
 
-    <citation type="bibtex">
-        @Article{Winter2012,
-    title = {mmod: an R library for the calculation of population differentiation statistics},
-    author = {D.J. Winter},
-    journal = {Molecular Ecology Resources},
-    year = {2012}
-        }
-    </citation>
+        <citation type="bibtex">
+            @Article{Winter2012,
+                title = {mmod: an R library for the calculation of population differentiation statistics},
+                author = {D.J. Winter},
+                journal = {Molecular Ecology Resources},
+                year = {2012}
+                }
+        </citation>
 
-    <citation type="bibtex">
-        @article{nei1973analysis,
-  author = {Nei, M.},
-  title = {Analysis of Gene Diversity in Subdivided Populations},
-  journal = {Proceedings of the National Academy of Sciences},
-  volume = {70},
-  number = {12},
-  pages = {3321--3323},
-  year = {1973},
-  doi = {10.1073/pnas.70.12.3321},
-  url = {https://www.pnas.org/doi/abs/10.1073/pnas.70.12.3321}
-}
-    </citation>
+        <citation type="doi">10.1073/pnas.70.12.3321</citation>
 
-    <citation type="bibtex">
-        @article{jost2008gst,
-  author = {Jost, Lou},
-  title = {$G_{ST}$ and its relatives do not measure differentiation},
-  journal = {Molecular Ecology},
-  volume = {17},
-  number = {18},
-  pages = {4015--4026},
-  doi = {10.1111/j.1365-294X.2008.03887.x},
-  url = {https://onlinelibrary.wiley.com/doi/abs/10.1111/j.1365-294X.2008.03887.x},
-  year = {2008}
-}
-    </citation>
+        <citation type="doi">10.1111/j.1365-294X.2008.03887.x</citation>
 
-    <citation type="bibtex">
-        @article{weir1984estimating,
-  author = {Weir, Bruce S. and Cockerham, C. Clark},
-  title = {Estimating F-Statistics for the Analysis of Population Structure},
-  journal = {Evolution},
-  volume = {38},
-  number = {6},
-  pages = {1358--1370},
-  year = {1984},
-  doi = {10.2307/2408641},
-  url = {https://www.jstor.org/stable/2408641}
-}
-    </citation>
-    <citation type="bibtex">
-        @Book{,
-    author = {Hadley Wickham},
-    title = {ggplot2: Elegant Graphics for Data Analysis},
-    publisher = {Springer-Verlag New York},
-    year = {2016},
-    isbn = {978-3-319-24277-4},
-    url = {https://ggplot2.tidyverse.org},
-  }
-    </citation>
+        <citation type="doi">10.2307/2408641</citation>
+        <citation type="bibtex">
+            @Book{,
+                author = {Hadley Wickham},
+                title = {ggplot2: Elegant Graphics for Data Analysis},
+                publisher = {Springer-Verlag New York},
+                year = {2016},
+                isbn = {978-3-319-24277-4},
+                url = {https://ggplot2.tidyverse.org},
+            }
+        </citation>
 
-    <citation type="bibtex">
-        @Manual{,
-    title = {{viridis(Lite)} - Colorblind-Friendly Color Maps for R},
-    author = {{Garnier} and {Simon} and {Ross} and {Noam} and {Rudis} and {Robert} and {Camargo} and Antônio Pedro and {Sciaini} and {Marco} and {Scherer} and {Cédric}},
-    year = {2024},
-    note = {viridis package version 0.6.5},
-    url = {https://sjmgarnier.github.io/viridis/},
-    doi = {10.5281/zenodo.4679423},
-  }
-    </citation>
+        <citation type="doi">10.5281/zenodo.4679423</citation>
 
-    <citation type="bibtex">
-        @Manual{,
-    title = {tibble: Simple Data Frames},
-    author = {Kirill Müller and Hadley Wickham},
-    year = {2026},
-    note = {R package version 3.3.1},
-    url = {https://CRAN.R-project.org/package=tibble},
-    doi = {10.32614/CRAN.package.tibble},
-  }
-    </citation>
-    <citation type="bibtex">
-        @Manual{,
-    title = {tidyr: Tidy Messy Data},
-    author = {Hadley Wickham and Davis Vaughan and Maximilian Girlich},
-    year = {2025},
-    note = {R package version 1.3.2},
-    url = {https://CRAN.R-project.org/package=tidyr},
-    doi = {10.32614/CRAN.package.tidyr},
-  }
-    </citation>
+        <citation type="doi">10.32614/CRAN.package.tibble</citation>
+        <citation type="doi">10.32614/CRAN.package.tidyr</citation>
     </citations>
 </tool>

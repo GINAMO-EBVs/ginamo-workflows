@@ -81,7 +81,7 @@
         <section name="correction" title="Pseudoreplication correction (optional)" expanded="false">
             <param name="apply_correction" type="boolean" truevalue="TRUE" falsevalue="FALSE" checked="false"
             label="Apply pseudoreplication correction?"/>
-            <param name="nb_chrom" type="integer" value="22" min="1"
+            <param name="nb_chrom" type="integer" min="1" optional="true"
                 label="Number of chromosomes"
                 help="Required when correction is enabled"/>
         </section>
@@ -93,9 +93,9 @@
                 label="Compute harmonic mean across subsamples?"
                 help="Applied automatically to all numeric Ne columns present (ex. NeLD, confidence intervals, or NeLD_corrected)."/>
  
-            <param name="maf_harmonic" type="text" value="0.05"
+            <param name="maf_harmonic" type="text" value="1"
                 label="MAF filter(s) for harmonic mean (space-separated)"
-                help="E.g. '0.05' or '0.02 0.05'.">
+                help="E.g. '1' or '0.02 0.05 1'.">
       </param>
 
         </section>
@@ -106,11 +106,13 @@
             <discover_datasets pattern="(?P&lt;designation&gt;.+)\.txt$" directory="results_LDNe" format="txt"/>
         </collection>
         <data name="summary_table" from_work_dir="summary_file/LDNe_results.txt" format="tabular" label="LDNe results" />
-        <data name="summ_harmonic_mean" from_work_dir="summary_file/LDNe_harmonic_mean.txt" format="tabular" label="LDNe results (harmonic mean)"/>
+        <data name="summ_harmonic_mean" from_work_dir="summary_file/LDNe_harmonic_mean.txt" format="tabular" label="LDNe results (harmonic mean)">
+            <filter>harmonic['apply_harmonic']</filter>
+        </data>
     </outputs>
 
     <tests>
-        <test>
+        <test expect_num_outputs="2">
             <param name="input_data" value="genepop_SNPs_test.txt"/>
             <param name="indpop" value="test_pop_ldne.txt"/>
             <param name="marker_type" value="SNP"/>
@@ -165,13 +167,13 @@ The user provides the following parameters :
 - **Loci range** : Specify the range of loci (genetic markers) to include in the analysis as a pair of integers (e.g., '1 100'). Setting the first value to '0' includes all loci present in the dataset.
 
 
-This tool implements the Linkage Disequilibrium (LD) method from **NeEstimator V2.1** via the **RLDNe** R package to estimate Ne by calculating the non-random association of alleles at different loci. The output provides a summary table *(LDNe_results)* containing Ne estimates, the number of polymorphic SNPs, 95% Jackknife confidence intervals, and r2 statistics (observed and expected) for each population and each allele frequency threshold specified.
+This tool implements the Linkage Disequilibrium (LD) method from **NeEstimator V2.1** via the **RLDNe** R package to estimate Ne by calculating the association between alleles at different loci. The output provides a summary table *(LDNe_results)* containing Ne estimates, the number of polymorphic SNPs, 95% Jackknife confidence intervals, and r2 statistics (observed and expected) for each population and each allele frequency threshold specified.
 
 ----
 
 **Pseudoreplication correction**
 --------------------------------
-If the user chooses to apply the pseudoreplication correction, they must provide the number of chromosomes for the studied species.
+If users chooses to apply the pseudoreplication correction, they must provide the number of chromosomes for the studied species.
 The tool computes the correction using the following equation (Waples *et al.* 2016):
 
 .. math::
@@ -186,7 +188,7 @@ The output table *(LDNe_results)* contains the same columns as the output of LDN
 
 **Harmonic mean**
 -----------------
-If the user chooses to apply the harmonic mean, they provide a spaced-separated list of MAF values to process.
+If users choose to apply the harmonic mean, they provide a spaced-separated list of MAF values to process.
 The tool calculates the harmonic mean for all numeric columns available in the input file for each combination of population (Pop) and marker type (marker_type), for each specified MAF. It also counts the number of subsets contributing to each estimate and includes this information in the output. Missing values (NA) are treated as infinite when computing the harmonic mean.
 
 Numeric columns considered are : 'NeLD', 'JK_CI_down', 'JK_CI_up', 'Overall_LD_r2', 'Expected_LD_r2', 'NeLD_corrected'. If the user doesn't apply pseudoreplication correction, the LDNe_column is automatically skipped.
@@ -262,42 +264,8 @@ Summary output table *(LDNe results (harmonic_mean))*
 }
         </citation>
 
-        <citation type="bibtex">
-        @article{Do2014NeEstimatorV2,
-  title        = {NeEstimator v2: re-implementation of software for the estimation of contemporary effective population size (Ne) from genetic data},
-  author       = {Do, C. and Waples, R. S. and Peel, D. and Macbeth, G. M. and Tillett, B. J. and Ovenden, J. R.},
-  journal      = {Molecular Ecology Resources},
-  year         = {2014},
-  volume       = {14},
-  number       = {1},
-  pages        = {209--214},
-  doi          = {10.1111/1755-0998.12157},
-  note         = {Epub 2013 Aug 31},
-  url          = {https://pubmed.ncbi.nlm.nih.gov/23992227/}
-}
-        </citation>
-        <citation type="bibtex">
-            @Manual{dplyr,
-  title        = {dplyr: A Grammar of Data Manipulation},
-  author       = {Hadley Wickham and Romain François and Lionel Henry and Kirill Müller and Davis Vaughan and Posit Software, PBC},
-  year         = {2016},
-  note         = {R package version 0.5.0},
-  doi          = {10.32614/CRAN.package.dplyr},
-  url          = {https://dplyr.tidyverse.org},
-  publisher    = {Comprehensive R Archive Network (CRAN)},
-}
-        </citation>
-        <citation type="bibtex">
-            @article{Waples2016_mec13814,
-  author       = {Waples, Robin S.},
-  title        = {Making sense of genetic estimates of effective population size},
-  journal      = {Molecular Ecology},
-  year         = {2016},
-  volume       = {25},
-  number       = {19},
-  pages        = {4689--4691},
-  doi          = {10.1111/mec.13814},
-}
-        </citation>
+        <citation type="doi">10.1111/1755-0998.12157</citation>
+        <citation type="doi">10.32614/CRAN.package.dplyr</citation>
+        <citation type="doi">10.1111/mec.13814</citation>
     </citations>
 </tool>

@@ -130,7 +130,6 @@ anonymise_genepop <- function(gen_path) {
   # Save file
   writeLines(new_lines, n_gen_path)
   list(path=n_gen_path, individuals=original_inds)
-  #ajouter pour récupérer le nom de la pop --> stocker pour les sous-échantillons ??
 }
 
 ######################################################################
@@ -284,15 +283,12 @@ extract_info_dataset <- function(result_path, indpop, individuals) {
   filename <- gsub("\\.txt", "",
                    basename(result_path), ignore.case = TRUE)
 
-  #Extract name of the dataset
-  dataset_name <- sub(paste0("_", pop_in_filename, ".*"), "", filename)
-  # Fallback: if pop not in filename, use full basename
-  if (dataset_name == filename) {
-    dataset_name <- filename
-  }
-
   #Extract subsample number
   subsample_match <- regmatches(filename, regexpr("subsample_[0-9]+", filename))
+
+  #Extract name of the dataset
+  dataset_name <- sub(paste0("_", pop_in_filename, ".*"), "", filename)
+  dataset_name <- sub("_subsampled?_[0-9]+.*", "", dataset_name)
 
   if (length(subsample_match) == 1) {
     subsample_number <- sub("subsample_", "", subsample_match)
@@ -313,7 +309,7 @@ extract_info_dataset <- function(result_path, indpop, individuals) {
 ###################################################################
 
 extract_values <- function(line) {
-  values <- unlist(strsplit(line, "\\s+"))
+  values <- unlist(strsplit(trimws(line), "\\s{2,}|\\t+"))
   values <- values[values != ""]
 }
 
@@ -342,18 +338,27 @@ for (text_file in results_path){
   table_lines <- table_lines[table_lines != ""]
 
   #Extract values
+  maf_raw <- lines[start_index]
+  maf_content <- sub("Lowest Allele Frequency Used", "", maf_raw)
+  raw_mafs <- extract_values(maf_content)
+
+  crit_freqs <- sapply(raw_mafs, function(x) {
+    if (grepl("No S\\*", x)) return("1")
+    if (grepl("0\\+", x)) return("0")
+    return(as.character(as.numeric(x)))
+  })
+  names(crit_freqs) <- NULL
+
   estimated_ne <- extract_values(table_lines[5])
   jk_ci_down <- extract_values(table_lines[9])
   jk_ci_up <- extract_values(table_lines[10])
   overall_ld_r2 <- extract_values(table_lines[3])
   expected_ld_r2 <- extract_values(table_lines[4])
-  crit_freqs <- unlist(strsplit(args[6], "\\s+"))
-  crit_freqs <- c(crit_freqs, "0+")
 
   #Get information about loci used to estimate LDNe
   snp_line_index <- grep("Number of Loci", lines)
   snp_line <- lines[snp_line_index]
-  snp_used <- extract_values(snp_line[1])[5]
+  snp_used <- sub(".*Number of Loci\\s*=\\s*([0-9]+).*", "\\1", snp_line[1])
 
   #Get dataset and population name
   info <- extract_info_dataset(text_file, indpop, results_individuals[[text_file]])
@@ -404,12 +409,6 @@ if (apply_correction == TRUE) {
     )
 }
 
-write.table(ldne_results,
-            file = "summary_file/LDNe_results.txt",
-            row.names = FALSE,
-            quote = FALSE,
-            sep = "\t")
-
 ######################## Harmonic mean ###########################
 if (apply_harmo == TRUE) {
   harmonic_mean <- function(x) {
@@ -454,8 +453,10 @@ if (apply_harmo == TRUE) {
     ne_estim <- ne_estim %>%
       left_join(subset_counts, by = c("Dataset", "Pop", "Marker_type")) %>%
       mutate(Subset = paste0("H_mean_btw_", n_subsets, "sub")) %>%
-      select(-n_subsets)  # Remove the temporary count column
-      relocate(Subset, .after = "Marker_type")
+      select(-n_subsets) %>%
+      relocate(Subset, .after = "Marker_type") %>%
+      mutate(across(any_of(c("NeLD", "JK_CI_down", "JK_CI_up", "NeLD_corrected")), round, digits=0),
+            across(any_of(c("Overall_LD_r2", "Expected_LD_r2")), round, digits=5))
 
       ne_estim_all <- bind_rows(ne_estim_all, ne_estim)
   }
@@ -465,3 +466,19 @@ if (apply_harmo == TRUE) {
   # save file
   write.table(ne_estim_all, output_file, sep = "\t", row.names = FALSE, quote = FALSE)
 }
+
+if (apply_correction == TRUE) {
+  ldne_results <- ldne_results %>%
+    mutate(across(c(NeLD, JK_CI_down, JK_CI_up, NeLD_corrected), round, digits=0),
+            across(c(Overall_LD_r2, Expected_LD_r2), round, digits=5))
+} else {
+  ldne_results <- ldne_results %>%
+    mutate(across(c(NeLD, JK_CI_down, JK_CI_up), round, digits=0),
+            across(c(Overall_LD_r2, Expected_LD_r2), round, digits=5))
+}
+
+write.table(ldne_results,
+            file = "summary_file/LDNe_results.txt",
+            row.names = FALSE,
+            quote = FALSE,
+            sep = "\t")

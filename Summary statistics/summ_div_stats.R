@@ -18,7 +18,7 @@ input_path  <- args[2]
 input_name  <- args[3]
 
 # Load indpop only for SNP
-if (marker_type == "snp") {
+if (marker_type == "SNP") {
   indpop_path <- args[4]
   indpop <- read.table(indpop_path, header = FALSE, sep = "\t")
   colnames(indpop) <- c("Ind", "Pop")
@@ -313,9 +313,9 @@ if (grepl("\\([^)]+\\)\\s*$", input_name)) {
 }  
 
 # Load data according to marker type
-if (marker_type == "snp") {
+if (marker_type == "SNP") {
   gen_file <- load_snp_data(input_path, indpop)
-} else if (marker_type == "ssr") {
+} else if (marker_type == "SSR") {
   gen_file <- load_ssr_data(input_path)
 }
   
@@ -355,12 +355,12 @@ if (!is.null(result) && nrow(result) > 0) {
 
 ############ Total (all populations combined) #################
 # Reload data with "tot" population
-if (marker_type == "snp") {
+if (marker_type == "SNP") {
   #Create a modified indpop with "tot" for all individuals
   indpop_tot <- indpop
   indpop_tot$Pop <- "All_populations_combined"
   gen_file_tot <- load_snp_data(input_path, indpop_tot)
-} else if (marker_type == "ssr") {
+} else if (marker_type == "SSR") {
   gen_file_tot <- load_ssr_data(input_path)
   # For SSR, manually set all populations to "tot"
   adegenet::pop(gen_file_tot) <- as.factor(rep("All_populations_combined", nInd(gen_file_tot)))
