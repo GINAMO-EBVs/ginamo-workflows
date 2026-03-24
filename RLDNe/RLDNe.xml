@@ -112,12 +112,12 @@
     </outputs>
 
     <tests>
-        <test expect_num_outputs="2">
+        <test expect_num_outputs="3">
             <param name="input_data" value="genepop_SNPs_test.txt"/>
             <param name="indpop" value="test_pop_ldne.txt"/>
             <param name="marker_type" value="SNP"/>
             <param name="n_critical_values" value="3"/>
-            <param name="critical_freqs" value="0.02 0.05 0.1"/>
+            <param name="critical_freqs" value="0.02 0.05 1"/>
             <param name="confidence_intervals" value="1"/>
             <param name="mating_system" value="0"/>
             <param name="max_individuals" value="0"/>
@@ -132,19 +132,112 @@
                 <param name="maf_harmonic" value="1"/>
             </section>
             
-            <output_collection name="result_table" type="list" count="1"/>
-            <output name="summ_harmonic_mean" ftype="tabular">
+            <output_collection name="result_table" type="list" count="1">
+                <element name="genepop_SNPs_test_LDNe_results">
+                    <assert_contents>
+                        <has_n_lines n="36" delta="2"/>
+                        <has_text text="Number of Loci = 1000"/>
+                    </assert_contents>
+                </element>
+            </output_collection>
+            <output name="summary_table" ftype="tabular">
                 <assert_contents>
-                    <has_n_columns n="11"/>
+                    <has_n_columns n="12"/>
+                    <has_n_lines n="5"/>
+                    <has_line_matching expression="Dataset\tPop\tMarker_type\tSubset\tloci\tMAF\tNeLD\tJK_CI_down\tJK_CI_up\tOverall_LD_r2\tExpected_LD_r2\tNeLD_corrected"/>
                 </assert_contents>
             </output>
 
             <output name="summ_harmonic_mean" ftype="tabular">
                 <assert_contents>
                     <has_n_columns n="11"/>
+                    <has_n_lines n="2"/>
+                    <has_line_matching expression="Dataset\tPop\tMarker_type\tSubset\tMAF\tNeLD\tJK_CI_down\tJK_CI_up\tOverall_LD_r2\tExpected_LD_r2\tNeLD_corrected"/>
                 </assert_contents>
             </output>
         </test>
+
+        <test expect_num_outputs="3">
+            <param name="input_data" value="genepop_SNPs_test.txt"/>
+            <param name="indpop" value="test_pop_ldne.txt"/>
+            <param name="marker_type" value="SNP"/>
+            <param name="n_critical_values" value="3"/>
+            <param name="critical_freqs" value="0.02 0.05 1"/>
+            <param name="confidence_intervals" value="1"/>
+            <param name="mating_system" value="0"/>
+            <param name="max_individuals" value="0"/>
+            <param name="pop_range" value="0"/>
+            <param name="loc_range" value="0"/>
+            <section name="correction">
+                <param name="apply_correction" value="FALSE"/>
+            </section>
+            <section name="harmonic">
+                <param name="apply_harmonic" value="TRUE"/>
+                <param name="maf_harmonic" value="1"/>
+            </section>
+            
+            <output_collection name="result_table" type="list" count="1">
+                <element name="genepop_SNPs_test_LDNe_results">
+                    <assert_contents>
+                        <has_n_lines n="36" delta="2"/>
+                        <has_text text="Number of Loci = 1000"/>
+                    </assert_contents>
+                </element>
+            </output_collection>
+
+            <output name="summary_table" ftype="tabular">
+                <assert_contents>
+                    <has_n_columns n="11"/>
+                    <has_n_lines n="5"/>
+                    <has_line_matching expression="Dataset\tPop\tMarker_type\tSubset\tloci\tMAF\tNeLD\tJK_CI_down\tJK_CI_up\tOverall_LD_r2\tExpected_LD_r2"/>
+                </assert_contents>
+            </output>
+
+            <output name="summ_harmonic_mean" ftype="tabular">
+                <assert_contents>
+                    <has_n_columns n="10"/>
+                    <has_n_lines n="2"/>
+                    <has_line_matching expression="Dataset\tPop\tMarker_type\tSubset\tMAF\tNeLD\tJK_CI_down\tJK_CI_up\tOverall_LD_r2\tExpected_LD_r2"/>
+                </assert_contents>
+            </output>
+        </test>
+
+        <test expect_num_outputs="2">
+            <param name="input_data" value="genepop_SNPs_test.txt"/>
+            <param name="indpop" value="test_pop_ldne.txt"/>
+            <param name="marker_type" value="SNP"/>
+            <param name="n_critical_values" value="3"/>
+            <param name="critical_freqs" value="0.02 0.05 1"/>
+            <param name="confidence_intervals" value="1"/>
+            <param name="mating_system" value="0"/>
+            <param name="max_individuals" value="0"/>
+            <param name="pop_range" value="0"/>
+            <param name="loc_range" value="0"/>
+            <section name="correction">
+                <param name="apply_correction" value="FALSE"/>
+            </section>
+            <section name="harmonic">
+                <param name="apply_harmonic" value="FALSE"/>
+            </section>
+            
+            <output_collection name="result_table" type="list" count="1">
+                <element name="genepop_SNPs_test_LDNe_results">
+                    <assert_contents>
+                        <has_n_lines n="36" delta="2"/>
+                        <has_text text="Number of Loci = 1000"/>
+                    </assert_contents>
+                </element>
+            </output_collection>
+
+            <output name="summary_table" ftype="tabular">
+                <assert_contents>
+                    <has_n_columns n="11"/>
+                    <has_n_lines n="5"/>
+                    <has_line_matching expression="Dataset\tPop\tMarker_type\tSubset\tloci\tMAF\tNeLD\tJK_CI_down\tJK_CI_up\tOverall_LD_r2\tExpected_LD_r2"/>
+                </assert_contents>
+            </output>
+        </test>
+        
     </tests>
     <help><![CDATA[
 Usage
