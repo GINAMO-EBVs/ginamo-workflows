@@ -68,9 +68,6 @@ if (ncol(indpop) < 2) {
 
 colnames(indpop) <- c("Ind", "Pop")
 
-
-########################## RLDNe execution ##########################
-
 #####################################################################
 # Function : anonymise_genepop
 # Description : Convert individuals name in number to avoid issue due to 
@@ -192,61 +189,6 @@ params_file <- function(gen_path,
   return(list(params_file = params_file_name, results_file = results_file))
 }
 
-##########################
-# LDNe : Main execution
-##########################
-results_path <- c()
-results_individuals <- list()  # Store original individual names per result file
-i_name <- 0
-for (gen_path in list_gen) {
-  #fonction 
-
-  ##### Extract basename #####
-  i_name <- i_name + 1
-  gen_base <- extract_base_name(list_names[i_name])
-
-  # Change the name of individuals to avoid issue due to the length of individual's name
-  outputs <- anonymise_genepop(gen_path)
-  n_gen_path <- outputs$path
-  original_inds <- outputs$individuals
-
-  ###### Create params file #####
-  params_output <- params_file(n_gen_path,
-                      gen_base,
-                        ld_method,
-                        n_critical_values,
-                        critical_freqs,
-                        tabular_output,
-                        confidence_intervals,
-                        mating_system,
-                        max_individuals,
-                        pop_range,
-                        loc_range)
-
-    ##### Extract params outputs #####
-    results_path <- c(results_path, params_output$results_file)
-    results_individuals[[params_output$results_file]] <- original_inds
-
-  ##### Run LDNe and return result file #####
-  std_out <- RLDNe::run_LDNe(params_output$params_file)
-}
-
-############################# Extract RLDNe results ################################
-#Create output file
-ldne_results <- as.data.frame(matrix(ncol = 11, nrow = 0))
-colnames(ldne_results) <- c("Dataset",
-                            "Marker_type",
-                            "Pop",
-                            "Subset",
-                            "N_loci",
-                            "MAF",
-                            "NeLD",
-                            "JK_CI_down",
-                            "JK_CI_up",
-                            "Overall_LD_r2",
-                            "Expected_LD_r2")
-
-
 ###################################################################
 # Function : extract_info_dataset
 # Description : Function to extract information about the dataset
@@ -312,6 +254,61 @@ extract_values <- function(line) {
   values <- unlist(strsplit(trimws(line), "\\s{2,}|\\t+"))
   values <- values[values != ""]
 }
+
+##########################
+# LDNe : Main execution
+##########################
+results_path <- c()
+results_individuals <- list()  # Store original individual names per result file
+i_name <- 0
+for (gen_path in list_gen) {
+  #fonction 
+
+  ##### Extract basename #####
+  i_name <- i_name + 1
+  gen_base <- extract_base_name(list_names[i_name])
+
+  # Change the name of individuals to avoid issue due to the length of individual's name
+  outputs <- anonymise_genepop(gen_path)
+  n_gen_path <- outputs$path
+  original_inds <- outputs$individuals
+
+  ###### Create params file #####
+  params_output <- params_file(n_gen_path,
+                      gen_base,
+                        ld_method,
+                        n_critical_values,
+                        critical_freqs,
+                        tabular_output,
+                        confidence_intervals,
+                        mating_system,
+                        max_individuals,
+                        pop_range,
+                        loc_range)
+
+    ##### Extract params outputs #####
+    results_path <- c(results_path, params_output$results_file)
+    results_individuals[[params_output$results_file]] <- original_inds
+
+  ##### Run LDNe and return result file #####
+  std_out <- RLDNe::run_LDNe(params_output$params_file)
+}
+
+############################# Extract RLDNe results ################################
+#Create output file
+ldne_results <- as.data.frame(matrix(ncol = 11, nrow = 0))
+colnames(ldne_results) <- c("Dataset",
+                            "Marker_type",
+                            "Pop",
+                            "Subset",
+                            "N_loci",
+                            "MAF",
+                            "NeLD",
+                            "JK_CI_down",
+                            "JK_CI_up",
+                            "Overall_LD_r2",
+                            "Expected_LD_r2")
+
 
 ###################################################################
 # Extract value execution
@@ -391,6 +388,7 @@ ldne_results <- ldne_results %>%
                   "JK_CI_up",
                   "Overall_LD_r2",
                   "Expected_LD_r2"), as.numeric),
+    Subset = ifelse(is.na(Subset), "All_snps", Subset),
     JK_CI_up = ifelse(is.na(JK_CI_up), 999999, JK_CI_up),
     NeLD     = ifelse(is.na(NeLD), 999999, NeLD)
   )
@@ -452,9 +450,13 @@ if (apply_harmo == TRUE) {
   
     ne_estim <- ne_estim %>%
       left_join(subset_counts, by = c("Dataset", "Pop", "Marker_type")) %>%
-      mutate(Subset = paste0("H_mean_btw_", n_subsets, "sub")) %>%
+      mutate(Subset = case_when(
+        is.na(n_subsets) | n_subsets == 1 ~ "All_snps",
+        TRUE ~ paste0("H_mean_btw_", n_subsets, "sub")
+        ))%>%
       select(-n_subsets) %>%
       relocate(Subset, .after = "Marker_type") %>%
+      relocate(MAF, .after = "Subset") %>%
       mutate(across(any_of(c("NeLD", "JK_CI_down", "JK_CI_up", "NeLD_corrected")), round, digits=0),
             across(any_of(c("Overall_LD_r2", "Expected_LD_r2")), round, digits=5))
 
