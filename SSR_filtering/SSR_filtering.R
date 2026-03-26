@@ -235,26 +235,26 @@ LD_filtering <- function(genepop_file_path, threshold_pval, genind_file) {
   }))
  
   # Filter the table to keep only pairs with significant P-values
-  paires_sig <- global_table[global_table$P_value < threshold_pval, ]
+  pairs_sig <- global_table[global_table$P_value < threshold_pval, ]
  
   # Greedy strategy : Deletes the locus involved in the most pairs with significant p-values.
   loci_to_remove <- c()
-  paires_remaining <- paires_sig
+  pairs_remaining <- pairs_sig
  
-  while (nrow(paires_remaining) > 0) {
+  while (nrow(pairs_remaining) > 0) {
   
     # Count how many times each locus appears in the remaining pairs
-    tous_loci <- c(paires_remaining$Locus1, paires_remaining$Locus2)
-    compte <- sort(table(tous_loci), decreasing = TRUE)
+    all_loci <- c(pairs_remaining$Locus1, pairs_remaining$Locus2)
+    compte <- sort(table(all_loci), decreasing = TRUE)
   
     # Remove the most frequent locus
     locus_to_remove <- names(compte)[1]
     loci_to_remove <- c(loci_to_remove, locus_to_remove)
   
     # Remove all pairs involving this locus
-    paires_remaining <- paires_remaining[
-      paires_remaining$Locus1 != locus_to_remove & 
-        paires_remaining$Locus2 != locus_to_remove, 
+    pairs_remaining <- pairs_remaining[
+      pairs_remaining$Locus1 != locus_to_remove & 
+        pairs_remaining$Locus2 != locus_to_remove, 
     ]
   }
  

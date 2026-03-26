@@ -152,7 +152,7 @@
 Usage
 =====
 
-This tool filters microsatellite (SSR) genotype data by applying up to four filters in a user-defined order. The user selects which filters to apply and their sequence. Each filter has its own set of parameters accessible in the corresponding section below.
+This tool filters microsatellite (SSR) genotype data by applying up to four filters in a user-defined order. The user selects which filters to apply and the order. Each filter has its own set of parameters accessible in the corresponding section below.
 
 **Available filters:**
 
