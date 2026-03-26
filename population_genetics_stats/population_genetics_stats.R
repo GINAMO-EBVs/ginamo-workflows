@@ -402,7 +402,6 @@ all_numeric_cols <- c("Hobs", "Hexp", "Ar", "Fis",
 cols_to_round <- intersect(all_numeric_cols, colnames(summary_div_stats))
 summary_div_stats[cols_to_round] <- lapply(summary_div_stats[cols_to_round], round, 5)
 
-
 write.table(summary_div_stats,
               file = "summary_file/summary_div_stats.txt",
               row.names = FALSE,
