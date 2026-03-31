@@ -1,4 +1,4 @@
-<tool id="LDNe" name="LDNe estimation" version="0.1.0">
+<tool id="LDNe" name="LDNe estimation" version="0.1.0" profile="25.0">
     <description>
         using RLDNe package and NeEstimator.
     </description>
@@ -13,6 +13,7 @@
         mkdir -p results_LDNe &&
         mkdir -p genfiles &&
         mkdir -p summary_file &&
+        mkdir -p pop_order &&
 
         Rscript '$__tool_directory__/RLDNe.R'
             #set $gen_paths = ','.join([str($v) for $v in $input_data])
@@ -105,8 +106,8 @@
         <collection name="result_table" type="list" label="${tool.name}: Raw file from NeEstimator">
             <discover_datasets pattern="(?P&lt;designation&gt;.+)\.txt$" directory="results_LDNe" format="txt"/>
         </collection>
-        <data name="summary_table" from_work_dir="summary_file/LDNe_results.txt" format="tabular" label="LDNe results" />
-        <data name="summ_harmonic_mean" from_work_dir="summary_file/LDNe_harmonic_mean.txt" format="tabular" label="LDNe results (harmonic mean)">
+        <data name="summary_table" from_work_dir="summary_file/LDNe_results.txt" format="tabular" label="Extract LDNe results" />
+        <data name="summ_harmonic_mean" from_work_dir="summary_file/LDNe_harmonic_mean.txt" format="tabular" label="Extract LDNe results (harmonic mean)">
             <filter>harmonic['apply_harmonic']</filter>
         </data>
     </outputs>
@@ -142,9 +143,9 @@
             </output_collection>
             <output name="summary_table" ftype="tabular">
                 <assert_contents>
-                    <has_n_columns n="12"/>
+                    <has_n_columns n="13"/>
                     <has_n_lines n="5"/>
-                    <has_line_matching expression="Dataset\tPop\tMarker_type\tSubset\tloci\tMAF\tNeLD\tJK_CI_down\tJK_CI_up\tOverall_LD_r2\tExpected_LD_r2\tNeLD_corrected"/>
+                    <has_line_matching expression="Dataset\tPop\tMarker_type\tSubset\tloci\tPolymorphic_loci\tMAF\tNeLD\tJK_CI_down\tJK_CI_up\tOverall_LD_r2\tExpected_LD_r2\tNeLD_corrected"/>
                 </assert_contents>
             </output>
 
@@ -187,9 +188,9 @@
 
             <output name="summary_table" ftype="tabular">
                 <assert_contents>
-                    <has_n_columns n="11"/>
+                    <has_n_columns n="12"/>
                     <has_n_lines n="5"/>
-                    <has_line_matching expression="Dataset\tPop\tMarker_type\tSubset\tloci\tMAF\tNeLD\tJK_CI_down\tJK_CI_up\tOverall_LD_r2\tExpected_LD_r2"/>
+                    <has_line_matching expression="Dataset\tPop\tMarker_type\tSubset\tloci\tPolymorphic_loci\tMAF\tNeLD\tJK_CI_down\tJK_CI_up\tOverall_LD_r2\tExpected_LD_r2"/>
                 </assert_contents>
             </output>
 
@@ -231,9 +232,9 @@
 
             <output name="summary_table" ftype="tabular">
                 <assert_contents>
-                    <has_n_columns n="11"/>
+                    <has_n_columns n="12"/>
                     <has_n_lines n="5"/>
-                    <has_line_matching expression="Dataset\tPop\tMarker_type\tSubset\tloci\tMAF\tNeLD\tJK_CI_down\tJK_CI_up\tOverall_LD_r2\tExpected_LD_r2"/>
+                    <has_line_matching expression="Dataset\tPop\tMarker_type\tSubset\tloci\tPolymorphic_loci\tMAF\tNeLD\tJK_CI_down\tJK_CI_up\tOverall_LD_r2\tExpected_LD_r2"/>
                 </assert_contents>
             </output>
         </test>
@@ -243,7 +244,7 @@
 Usage
 =====
 
-As input, the user provides one or more Genepop files, the marker type and a population assignment file (tabular format) containing individual identifiers and their respective population groups.
+As input, the user provides one or more Genepop files, the marker type and a population assignment file containing individual identifiers and their respective population groups. The genepop file may contain several populations.
 The user can select two options : pseudoreplication correction and applying a harmonic mean.
 
 ----
@@ -251,22 +252,21 @@ The user can select two options : pseudoreplication correction and applying a ha
 **LDNe estimation**
 -------------------
 The user provides the following parameters :
-- **Number of critical frequencies values** : Number of minimum allele frequency (MAF) thresholds to apply. Must match the number of values provided in the "Critical frequencies values" field below.
-- **Critical frequencies values (MAF)** : Space-separated list of minimum frequencies (e.g. 0.01 0.02 0.05). Alleles below these values are ignored.
-- **Confidence intervals** : 1 = compute Jackknife confidence intervals; 0 = do not compute confidence intervals.
-- **Mating system** : 0: Random mating, 1: Monogamy (LD Method)
-- **Maximum individuals** : Maximum number of individuals to process per population. Use 0 for no limit.
-- **Population range** : Specify the range of populations to process as a pair of integers (e.g., '1 5' to process populations 1 through 5). Set the first value to '0' to process all populations found in the file.
-- **Loci range** : Specify the range of loci (genetic markers) to include in the analysis as a pair of integers (e.g., '1 100'). Setting the first value to '0' includes all loci present in the dataset.
+    - **Number of critical frequencies values** : Number of minimum allele frequency (MAF) thresholds to apply. Must match the number of values provided in the "Critical frequencies values" field below.
+    - **Critical frequencies values (MAF)** : Space-separated list of minimum frequencies (e.g. 0.01 0.02 0.05). Alleles below these values are ignored.
+    - **Confidence intervals** : 1 = compute Jackknife confidence intervals; 0 = do not compute confidence intervals.
+    - **Mating system** : 0: Random mating, 1: Monogamy (LD Method)
+    - **Maximum individuals** : Maximum number of individuals to process per population. Use 0 for no limit.
+    - **Population range** : Specify the range of populations to process as a pair of integers (e.g., '1 5' to process populations 1 through 5). Set the first value to '0' to process all populations found in the file.
+    - **Loci range** : Specify the range of loci (genetic markers) to include in the analysis as a pair of integers (e.g., '1 100'). Setting the first value to '0' includes all loci present in the dataset.
 
-
-This tool implements the Linkage Disequilibrium (LD) method from **NeEstimator V2.1** via the **RLDNe** R package to estimate Ne by calculating the association between alleles at different loci. The output provides a summary table *(LDNe_results)* containing Ne estimates, the number of polymorphic SNPs, 95% Jackknife confidence intervals, and r2 statistics (observed and expected) for each population and each allele frequency threshold specified.
+This tool implements the Linkage Disequilibrium (LD) method from **NeEstimator V2.1** via the **RLDNe** R package to estimate Ne by calculating the association between alleles at different loci. The output provides a summary table *(Extract LDNe_results)* containing Ne estimates, the number of polymorphic SNPs, 95% Jackknife confidence intervals, and r2 statistics (observed and expected) for each population and each allele frequency threshold specified.
 
 ----
 
 **Pseudoreplication correction**
 --------------------------------
-If users chooses to apply the pseudoreplication correction, they must provide the number of chromosomes for the studied species.
+If users choose to apply the pseudoreplication correction, they must provide the number of chromosomes for the studied species.
 The tool computes the correction using the following equation (Waples *et al.* 2016):
 
 .. math::
@@ -284,9 +284,9 @@ The output table *(LDNe_results)* contains the same columns as the output of LDN
 If users choose to apply the harmonic mean, they provide a spaced-separated list of MAF values to process.
 The tool calculates the harmonic mean for all numeric columns available in the input file for each combination of population (Pop) and marker type (marker_type), for each specified MAF. It also counts the number of subsets contributing to each estimate and includes this information in the output. Missing values (NA) are treated as infinite when computing the harmonic mean.
 
-Numeric columns considered are : 'NeLD', 'JK_CI_down', 'JK_CI_up', 'Overall_LD_r2', 'Expected_LD_r2', 'NeLD_corrected'. If the user doesn't apply pseudoreplication correction, the LDNe_column is automatically skipped.
+Numeric columns considered are : 'NeLD', 'JK_CI_down', 'JK_CI_up', 'Overall_LD_r2', 'Expected_LD_r2', 'NeLD_corrected'. If the user doesn't apply pseudoreplication correction, the LDNe_corrected column is automatically skipped.
 
-The output provides a summary table *(LDNe results (harmonic_mean))* containing the harmonic mean for the columns mentioned just above. 
+The output provides a summary table *(Extract LDNe results (harmonic_mean))* containing the harmonic mean for the columns mentioned just above. 
 
 Examples files
 ==============
@@ -310,7 +310,7 @@ Input Genepop file (.txt)
 
 You can used vcf2genepop tool or PGDSpider on your own computer.
 
-Population file (.tabular)
+Population file (.tabular or .txt)
 
 ::
 
@@ -320,24 +320,25 @@ Population file (.tabular)
     ind4    pop1
     ind5    pop3
 
+**Summary output table (LDNe_results)**
 
-Summary output table *(LDNe_results)*
-+----------+------+-------------+--------+-------+------+-------+------------+----------+----------------+
-| Dataset  | Pop  | Marker_type | Subset | Loci  | MAF  | NeLD  | JK_CI_down | JK_CI_up | NeLD_corrected |
-+==========+======+=============+========+=======+======+=======+============+==========+================+
-| MyStudy  | Pop1 | SNP         | 1      | 1200  | 0.02 | 450.2 | 380.1      | 560.4    | 362            |
-+----------+------+-------------+--------+-------+------+-------+------------+----------+----------------+
-| MyStudy  | Pop1 | SNP         | 2      | 1150  | 0.05 | 435.0 | 370.5      | 510.2    | 362            |
-+----------+------+-------------+--------+-------+------+-------+------------+----------+----------------+
++---------+------+-------------+--------+-------+------+-------+------------+----------+----------------+
+| Dataset | Pop  | Marker_type | Subset | Loci  | MAF  | NeLD  | JK_CI_down | JK_CI_up | NeLD_corrected |
++=========+======+=============+========+=======+======+=======+============+==========+================+
+| MyStudy | Pop1 | SNP         | 1      | 1200  | 0.02 | 450.2 | 380.1      | 560.4    | 362            |
++---------+------+-------------+--------+-------+------+-------+------------+----------+----------------+
+| MyStudy | Pop2 | SNP         | 1      | 1150  | 0.05 | 435.0 | 370.5      | 510.2    | 362            |
++---------+------+-------------+--------+-------+------+-------+------------+----------+----------------+
 
-Summary output table *(LDNe results (harmonic_mean))*
-+----------+------+-------------+-----------------+------+-------+------------+----------+----------------+
-| Dataset  | Pop  | Marker_type | Subset          | MAF  | NeLD  | JK_CI_down | JK_CI_up | NeLD_corrected |
-+==========+======+=============+=================+======+=======+============+==========+================+
-| MyStudy  | Pop1 | SNP         | H_mean_btw_5sub | 1    | 450.2 | 380.1      | 560.4    | 362            |
-+----------+------+-------------+--------------+---------+-------+------------+----------+----------------+
-| MyStudy  | Pop2 | SNP         | H_mean_btw_5sub | 1    | 435.0 | 370.5      | 510.2    | 362            |
-+----------+------+-------------+-----------------+------+-------+------------+----------+----------------+
+**Summary output table (LDNe results (harmonic_mean))**
+
++---------+------+-------------+-----------------+------+-------+------------+----------+----------------+
+| Dataset | Pop  | Marker_type | Subset          | MAF  | NeLD  | JK_CI_down | JK_CI_up | NeLD_corrected |
++=========+======+=============+=================+======+=======+============+==========+================+
+| MyStudy | Pop1 | SNP         | H_mean_btw_5sub | 1    | 450.2 | 380.1      | 560.4    | 362            |
++---------+------+-------------+-----------------+------+-------+------------+----------+----------------+
+| MyStudy | Pop2 | SNP         | H_mean_btw_5sub | 1    | 435.0 | 370.5      | 510.2    | 362            |
++---------+------+-------------+-----------------+------+-------+------------+----------+----------------+
 
     ]]></help>
 

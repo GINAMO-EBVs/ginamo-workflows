@@ -1,4 +1,4 @@
-<tool id="format_converter_pgdspider" name="Genetic format Converter" version="0.1.0">
+<tool id="genetic_format_conversion" name="Genetic format conversion" version="0.1.0" profile="25.0">
     <description>
         using PGDSpider and additional conversion modules.
     </description>
@@ -8,8 +8,9 @@
 
     <command detect_errors="exit_code"><![CDATA[
         mkdir -p convert_directory &&
+        mkdir -p pop_affiliation &&
 
-        bash '$__tool_directory__/format_converter.sh'
+        bash '$__tool_directory__/genetic_format_conversion.sh'
             '${input_file}'
             '${input_file.element_identifier}'
             '$data_conditional.input_format'
@@ -65,6 +66,7 @@
 
             
             #elif $data_conditional.input_format == "genepop" and $data_conditional.output_selection.output_format == "bayescan":
+                '$data_conditional.output_selection.indpop'
                 '$data_conditional.output_selection.marker_type'
                 '$data_conditional.output_selection.alleles_coded'
             
@@ -159,6 +161,8 @@
                             <option value="MICROSAT">SSR (microsatellites)</option>
                             <option value="STANDARD">STANDARD</option>
                         </param>
+                        <param name="indpop" type="data" format="tabular,txt" label="Upload your population file"
+                            help="File containing individuals in the first column and their population in the second, separated by a tabulation character."/>
                         <param name="alleles_coded" type="select" label="How are Microsat alleles coded?">
                             <option value="as number of repeats">as number of repeats</option>
                             <option value="as the length of the PCR fragments">as the length of the PCR fragments</option>
@@ -172,6 +176,10 @@
     <outputs>
         <data name="convert_files" format="txt" label="${tool.name}">
             <discover_datasets pattern="(?P&lt;designation&gt;.+)$" directory="convert_directory" visible="true" assign_primary_output="true"/>
+        </data>
+        <data name="number_pop_affiliation" from_work_dir="pop_affiliation/pop_affiliation.txt" 
+            format="tabular" label="${tool.name} : Track number - pop">
+            <filter>data_conditional['input_format'] == "genepop" and data_conditional['output_selection']['output_format'] == "bayescan"</filter>
         </data>
     </outputs>
 
@@ -187,9 +195,13 @@
         <param name="data_conditional|output_selection|exclude_loci" value="false"/>
         <param name="data_conditional|output_selection|non_polymorphic" value="false"/>
         <param name="data_conditional|output_selection|indels" value="false"/>
-        <param name="data_conditional|output_selection|indpop_file|indpop_inc" value="false"/>
-        <output name="convert_files">
-            <discovered_dataset designation="test_vcf_genepop" file="test_vcf_genepop.txt" ftype="txt"/>
+        <param name="data_conditional|output_selection|indpop_file|indpop_inc" value="true"/>
+        <param name="data_conditional|output_selection|indpop_file|indpop" value="test_pop.txt"/>
+        <output name="convert_files" ftype="txt" count="1">
+            <assert_contents>
+                <has_n_lines n="783"/>
+                <has_text text="Pop"/>
+            </assert_contents>
         </output>
     </test>
 
@@ -200,32 +212,55 @@
         <param name="data_conditional|output_selection|output_format" value="genepop"/>
         <param name="data_conditional|output_selection|sep_char" value="TAB"/>
         <param name="data_conditional|output_selection|digit_num" value="3"/>
-        <output name="convert_files">
-            <discovered_dataset designation="test_SSR_genepop" file="test_SSR_genepop.txt" ftype="txt"/>
+        <output name="convert_files" ftype="txt" count="1">
+            <assert_contents>
+                <has_n_lines n="271"/>
+                <has_text text="Pop"/>
+            </assert_contents>
         </output>
     </test>
 
     <!-- Test 3 : GENEPOP → BAYESCAN (SSR / microsatellites) -->
-    <test expect_num_outputs="1">
+    <test expect_num_outputs="2">
         <param name="input_file" value="test_SSR_genepop.txt" ftype="txt"/>
         <param name="data_conditional|input_format" value="genepop"/>
         <param name="data_conditional|output_selection|output_format" value="bayescan"/>
+        <param name="data_conditional|output_selection|indpop" value="test_pop_ssr.txt"/>
         <param name="data_conditional|output_selection|marker_type" value="MICROSAT"/>
         <param name="data_conditional|output_selection|alleles_coded" value="as the length of the PCR fragments"/>
-        <output name="convert_files">
-            <discovered_dataset designation="test_SSR_genepop_bayes" file="test_SSR_genepop_bayes.txt" ftype="txt"/>
+        <output name="convert_files" ftype="txt" count="1">
+            <assert_contents>
+                <has_n_lines n="293"/>
+                    <has_text text="[populations]=6"/>
+                </assert_contents>
+        </output>
+        <output name="number_pop_affiliation" ftype="tabular">
+            <assert_contents>
+                    <has_n_lines n="6"/>
+                    <has_line_matching expression="Portugal\t6"/>
+                </assert_contents>
         </output>
     </test>
 
     <!-- Test 4 : GENEPOP → BAYESCAN (SNP) -->
-    <test expect_num_outputs="1">
+    <test expect_num_outputs="2">
         <param name="input_file" value="test_vcf_genepop.txt" ftype="txt"/>
         <param name="data_conditional|input_format" value="genepop"/>
         <param name="data_conditional|output_selection|output_format" value="bayescan"/>
+        <param name="data_conditional|output_selection|indpop" value="test_pop.txt"/>
         <param name="data_conditional|output_selection|marker_type" value="SNP"/>
         <param name="data_conditional|output_selection|alleles_coded" value="as the length of the PCR fragments"/>
-        <output name="convert_files">
-            <discovered_dataset designation="test_vcf_genepop_bayes" file="test_vcf_genepop_bayes.txt" ftype="txt"/>
+        <output name="convert_files" ftype="txt" count="1">
+            <assert_contents>
+                <has_n_lines n="4523"/>
+                <has_text text="[populations]=9"/>
+            </assert_contents>
+        </output>
+        <output name="number_pop_affiliation" ftype="tabular">
+            <assert_contents>
+                    <has_n_lines n="9"/>
+                    <has_line_matching expression="GA-2_2021\t1"/>
+                </assert_contents>
         </output>
     </test>
 
@@ -235,15 +270,17 @@
 
 Usage
 =====
+As input, users provide a file in one of three accepted formats: VCF (Danecek *et al.* 2011), GENEPOP (Raymond & Rousset 1995) or Tabular (see **SSR Genotype file** format below). After selecting the desired output format, users can configure formatting paramters, most of which pre-set default values. 
 
-As input, the user provides one or more files. Three formats are accepted as input : VCF (Danecek *et al.* 2011), GENEPOP (publi) or Tabular (see **SSR Genotype file** example below). The user selects the desired output format from the formats available for their input file and answers a few formatting questions. Users may also leave the default values unchanged.
+The tool supports three primary conversion :
 
-PGSpider is a powerful automated data conversion tool for population genetics and genomics programs (https://software.bioinformatics.unibe.ch/pgdspider/). PGDSpider is here used to convert on bayescan format and also to convert VCF into GENEPOP format.
-Tabular SSR conversion into GENEPOP is do manually.
+1. **VCF → GENEPOP**: The tool uses PGDSpider (Lischer & Excoffier 2012) to parse variant call data. It generates a GENEPOP file containing the list of loci followed by individual genotypes, formatted for use in population genetics software and R packages. Users must provide a population assignment file to define population groupings and specify ploidy as well as filtering options (minimum phred-scaled quality, minimum genotype quality, minimum read depth, INDEL inclusion, etc.).
 
-For GENEPOP conversion, the tool parses the genotypes and generates a Genepop file containing the list of loci followed by the individual genotypes formatted for use in many population genetics software and R function.
+2. **Tabular → GENEPOP**: SSR genotype data provided in tabular format are converted into GENEPOP format directly (without PGDSpider). The user specifies the allele separator and the number of digits used to encode alleles. The tool parses individual genotypes per population and writes a standard GENEPOP file.
 
-For Geste/BayeScan conversion, the tool restructures genotype data into allele count matrices formatted according to the BayeScan specification, generating a file that declares the number of loci and populations, followed by population-specific allele counts per locus, ensuring compatibility with Bayesian FST-based inference analyses.
+3. **GENEPOP → Geste/BayeScan**: The tool uses PGDSpider to restructure genotype data into allele count matrices formatted according to the BayeScan specification (Foll & Gaggiotti 2008). Users provide a population assignment file to define the population order in the output. The output file declares the number of loci and populations, followed by population-specific allele counts per locus, ensuring compatibility with Bayesian F\ :sub:`ST`\-based inference analyses.  A `pop_affiliation` file is generated, containing the name of the population and the number corresponding to its order of appearance in the Bayes output.
+
+NB: PGDSpider is a powerful automated data conversion tool for population genetics and genomics (https://software.bioinformatics.unibe.ch/pgdspider/). It is used here for VCF → GENEPOP and GENEPOP → Geste/BayeScan conversions.
 
 **SSR Genotype file (tab):**
 
@@ -266,11 +303,11 @@ For Geste/BayeScan conversion, the tool restructures genotype data into allele c
     .
     locX
     POP 
-    pop.1, 0101 0101 ...
-    pop.1, 0001 0101 ...
+    ind1, 0101 0101 ...
+    ind2, 0001 0101 ...
     POP
-    pop.2, 0100 0101 ...
-    pop.2, 0100 0101 ...
+    ind3, 0100 0101 ...
+    ind4, 0100 0101 ...
 
 
 This file can be used as input for the LDNe software to estimate the effective population size.
@@ -289,6 +326,24 @@ This file can be used as input for the LDNe software to estimate the effective p
      3  102 8   0 4 0 25 67 4 2 0
 
 This file can be used as input for the BayeScan tool.
+
+**Population assignement file (tab-separated)**
+
+::
+
+    ind1    pop1
+    ind2    pop2
+    ind3    pop2
+    ind4    pop1
+    ind5    pop3
+
+**Pop affiliation order (tab-separated)**
+
+::
+
+    pop1    1
+    pop2    2
+
 
 See also examples of VCF formats in :  https://samtools.github.io/hts-specs/VCFv4.5.pdf
         

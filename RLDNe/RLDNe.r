@@ -68,6 +68,53 @@ if (ncol(indpop) < 2) {
 
 colnames(indpop) <- c("Ind", "Pop")
 
+#########################################################################
+# Function : population_order
+# Description : Retrieve the order of the population on the genepop file
+#########################################################################
+population_order <- function(gen_path, indpop, input_name) {
+  lines <- readLines(gen_path)
+  pop_indices <- grep("^POP", lines, ignore.case = TRUE)
+
+  pop_order <- data.frame(Pop=character(), pop_count=integer(), stringsAsFactors = FALSE)
+  pop_id <- 0
+  for (pop_index in pop_indices){
+    pop_id <- pop_id + 1
+    first_ind <- TRUE
+    
+    for (k in (pop_index + 1):length(lines)) {
+      
+      current_line <- trimws(lines[k])
+      
+      #Stop if we hit the next POP block
+      if (grepl("^POP", current_line, ignore.case = TRUE)) break
+      
+      # Skip empty lines if any
+      if (nchar(current_line) == 0) next
+      
+      # For the first individual of each POP, retrieve population name
+      if (first_ind) {
+        Ind <- trimws(sub(",.*", "", current_line))
+        match_row <- indpop[indpop$Ind == Ind, ]
+        
+        if (nrow(match_row) > 0) {
+          actual_Pop <- match_row$Pop[1]
+        } else {
+          actual_Pop <- paste0("Unknown_Pop_", pop_id)
+        }
+        
+        pop_order <- rbind(pop_order, data.frame(
+          Pop  = actual_Pop,
+          pop_count = pop_id,
+          stringsAsFactors = FALSE
+        ))
+        first_ind <- FALSE
+      }
+    }
+  }
+  return(pop_order)
+}
+
 #####################################################################
 # Function : anonymise_genepop
 # Description : Convert individuals name in number to avoid issue due to 
@@ -77,61 +124,47 @@ anonymise_genepop <- function(gen_path) {
   ###### Change individuals' names to avoid reading problems for RLDNe #####
   lines <- readLines(gen_path)
 
-  if (!file.exists(gen_path)) {
-    warning(paste("File not found:", gen_path))
-    next
-  }
-
   # Find POP line
   pop_indices <- grep("^POP", lines, ignore.case = TRUE)
-  if (length(pop_indices) != 1) {
-    stop("Expected exactly one pop in genepop file")
-  }
 
   # Copy lines (we will modify only individual names)
   new_lines <- lines
+  pop_id <- 0
 
-  # Counter for new individual IDs
-  ind_counter <- 1
+  for (pop_index in pop_indices){
+    ind_counter <- 1
+    pop_id <- pop_id +1
 
-  # Store original individual names BEFORE renaming
-  original_inds <- c()
+    # Loop on individuals (lines after POP)
+    for (k in (pop_index + 1):length(lines)) {
 
-  pop_index <- pop_indices[1]
-  # Loop on individuals (lines after POP)
-  for (k in (pop_index + 1):length(lines)) {
+      current_line <- trimws(lines[k])
+      #Stop if we hit the next POP block
+      if (grepl("^POP", current_line, ignore.case = TRUE)) break
 
-    current_line <- trimws(lines[k])
+      # Skip empty lines if any
+      if (nchar(current_line) == 0) next
 
-    # Skip empty lines if any
-    if (nchar(current_line) == 0) next
+      # Replace only what is before the first comma
+      new_lines[k] <- sub(
+        "^[^,]+",
+        paste0(pop_id,"_",ind_counter),
+        lines[k]
+      )
 
-    # Extract original individual name (before first comma)
-    original_name <- trimws(sub(",.*", "", lines[k]))
-    original_inds <- c(original_inds, original_name)
-
-    # Replace only what is before the first comma
-    new_lines[k] <- sub(
-      "^[^,]+",
-      ind_counter,
-      lines[k]
-    )
-
-    ind_counter <- ind_counter + 1
+      ind_counter <- ind_counter + 1
+    }
   }
-
-  # Build output file name
   name_file <- sub("^.*/(.*)\\.[^.]+$", "\\1", gen_path)
   n_gen_path <- paste0("genfiles/", name_file, ".txt")
 
-  # Save file
   writeLines(new_lines, n_gen_path)
-  list(path=n_gen_path, individuals=original_inds)
+  return(n_gen_path)
 }
 
 ######################################################################
 # Function : extract_base_name
-# Description : Extract the input real name. 
+# Description : Extract the input real name
 #####################################################################
 extract_base_name <- function(input_name) {
   #Extract base name
@@ -196,30 +229,9 @@ params_file <- function(gen_path,
 # Population name is retrieved from indpop based on individuals
 # present in the input genepop file (not from the filename)
 ###################################################################
-extract_info_dataset <- function(result_path, indpop, individuals) {
+extract_info_dataset <- function(result_path, pop_order) {
 
-  # Match individuals from the genepop to indpop to find the population
-  matched_pops <- indpop$Pop[indpop$Ind %in% individuals]
-
-  if (length(matched_pops) == 0) {
-    stop(paste0(
-      "No individuals from the genepop file were found in indpop for: ",
-      result_path,
-      "\nCheck that individual names match between the genepop and indpop files."
-    ))
-  }
-
-  unique_pops <- unique(as.character(matched_pops))
-
-  if (length(unique_pops) > 1) {
-    warning(paste0(
-      "Multiple populations found for file: ", result_path,
-      " -> ", paste(unique_pops, collapse = ", "),
-      ". Using the first one."
-    ))
-  }
-
-  pop_in_filename <- unique_pops[1]
+  unique_pops <- unique(as.character(pop_order$Pop))
 
   #Extract basename (for dataset name and subsample)
   filename <- gsub("\\.txt", "",
@@ -227,15 +239,18 @@ extract_info_dataset <- function(result_path, indpop, individuals) {
 
   #Extract subsample number
   subsample_match <- regmatches(filename, regexpr("subsample_[0-9]+", filename))
+  subsample_number <- if (length(subsample_match) == 1) sub("subsample_", "", subsample_match) else NA
 
   #Extract name of the dataset
-  dataset_name <- sub(paste0("_", pop_in_filename, ".*"), "", filename)
-  dataset_name <- sub("_subsampled?_[0-9]+.*", "", dataset_name)
-
-  if (length(subsample_match) == 1) {
-    subsample_number <- sub("subsample_", "", subsample_match)
+  if (length(unique_pops) == 1) {
+    #Single pop : remove pop name from filename if present
+    dataset_name <- sub(paste0("_",unique_pops[1],".*"),"",filename)
+    dataset_name <- sub("_subsampled?_[0-9]+.*", "", dataset_name)
+    pop_in_filename <- unique_pops[1]
   } else {
-    subsample_number <- NA
+    # Multiple pops : don't touch the filename
+    dataset_name <- sub("_subsampled?_[0-9]+.*", "", filename)
+    pop_in_filename <- NA
   }
 
   return(list(
@@ -259,19 +274,18 @@ extract_values <- function(line) {
 # LDNe : Main execution
 ##########################
 results_path <- c()
-results_individuals <- list()  # Store original individual names per result file
+pop_order_list <- list()
 i_name <- 0
+
 for (gen_path in list_gen) {
-  #fonction 
 
   ##### Extract basename #####
   i_name <- i_name + 1
   gen_base <- extract_base_name(list_names[i_name])
 
   # Change the name of individuals to avoid issue due to the length of individual's name
-  outputs <- anonymise_genepop(gen_path)
-  n_gen_path <- outputs$path
-  original_inds <- outputs$individuals
+  n_gen_path <- anonymise_genepop(gen_path)
+  pop_order_current <- population_order(gen_path, indpop, gen_base)
 
   ###### Create params file #####
   params_output <- params_file(n_gen_path,
@@ -288,7 +302,7 @@ for (gen_path in list_gen) {
 
     ##### Extract params outputs #####
     results_path <- c(results_path, params_output$results_file)
-    results_individuals[[params_output$results_file]] <- original_inds
+    pop_order_list[[params_output$results_file]] <- pop_order_current
 
   ##### Run LDNe and return result file #####
   std_out <- RLDNe::run_LDNe(params_output$params_file)
@@ -296,12 +310,13 @@ for (gen_path in list_gen) {
 
 ############################# Extract RLDNe results ################################
 #Create output file
-ldne_results <- as.data.frame(matrix(ncol = 11, nrow = 0))
+ldne_results <- as.data.frame(matrix(ncol = 12, nrow = 0))
 colnames(ldne_results) <- c("Dataset",
                             "Marker_type",
                             "Pop",
                             "Subset",
-                            "N_loci",
+                            "loci",
+                            "Polymorphic_loci",
                             "MAF",
                             "NeLD",
                             "JK_CI_down",
@@ -313,8 +328,6 @@ colnames(ldne_results) <- c("Dataset",
 ###################################################################
 # Extract value execution
 ##################################################################
-n_critical_values=as.numeric(n_critical_values)
-n_critical_values=n_critical_values+1
 for (text_file in results_path){
   lines <- readLines(text_file)
 
@@ -324,62 +337,136 @@ for (text_file in results_path){
     next
   }
 
-  #Lines with interesting data
-  start_index <- grep("Lowest Allele Frequency Used", lines)
-  end_index <- grep("Ending time:", lines)
+  pop_order_file <- pop_order_list[[text_file]]
+  n_pops <- nrow(pop_order_file)
 
-  #Get interesting lines
-  table_lines <- lines[(start_index + 4):(end_index - 4)]
+  # Find all population start indices
+  pop_start_indices <- grep("^Population\\s+[0-9]+", lines)
+  all_start_indices <- grep("Lowest Allele Frequency Used", lines)
 
-  #Remove lines not interesting
-  table_lines <- table_lines[table_lines != ""]
-
-  #Extract values
-  maf_raw <- lines[start_index]
-  maf_content <- sub("Lowest Allele Frequency Used", "", maf_raw)
-  raw_mafs <- extract_values(maf_content)
-
-  crit_freqs <- sapply(raw_mafs, function(x) {
-    if (grepl("No S\\*", x)) return("1")
-    if (grepl("0\\+", x)) return("0")
-    return(as.character(as.numeric(x)))
-  })
-  names(crit_freqs) <- NULL
-
-  estimated_ne <- extract_values(table_lines[5])
-  jk_ci_down <- extract_values(table_lines[9])
-  jk_ci_up <- extract_values(table_lines[10])
-  overall_ld_r2 <- extract_values(table_lines[3])
-  expected_ld_r2 <- extract_values(table_lines[4])
-
-  #Get information about loci used to estimate LDNe
+  # Get SNP line (global, one per file)
   snp_line_index <- grep("Number of Loci", lines)
   snp_line <- lines[snp_line_index]
-  snp_used <- sub(".*Number of Loci\\s*=\\s*([0-9]+).*", "\\1", snp_line[1])
-
-  #Get dataset and population name
-  info <- extract_info_dataset(text_file, indpop, results_individuals[[text_file]])
+  loci_used <- sub(".*Number of Loci\\s*=\\s*([0-9]+).*", "\\1", snp_line[1])
+  
+  # Get dataset info
+  info <- extract_info_dataset(text_file, pop_order_file)
   dataset <- info$dataset_name
-  population <- info$pop_in_filename
   subsample <- info$subsample
+  
+  for (i in seq_len(n_pops)) {
+    
+    # Define block boundaries for this population
+    start_index <- all_start_indices[i]
+    
+    # End of block = next Population line or end of file
+    if (i < n_pops) {
+      end_index <- pop_start_indices[i + 1] - 1
+    } else {
+      end_index <- length(lines)
+    }
+    
+    # Extract block lines
+    block_lines <- lines[start_index:end_index]
+    
+    # Check for fatal/empty block
+    if (length(block_lines) < 10) {
+      message("Block too short for pop ", i, " in file: ", text_file)
+      next
+    }
+    
+    # Remove empty lines for indexing
+    table_lines <- block_lines[5:(length(block_lines))]
+    table_lines <- table_lines[table_lines != ""]
+    
+    # Extract MAF
+    maf_raw <- block_lines[1]
+    maf_content <- sub("Lowest Allele Frequency Used", "", maf_raw)
+    raw_mafs <- extract_values(maf_content)
+    crit_freqs <- sapply(raw_mafs, function(x) {
+      if (grepl("No S\\*", x)) return("1")
+      if (grepl("0\\+", x)) return("0")
+      return(as.character(as.numeric(x)))
+    })
+    names(crit_freqs) <- NULL
+    n_critical_values = length(crit_freqs)
+    
+    # Extract Ne and CI values
+    find_line <- function(lines, pattern) {
+      idx <- grep(pattern, lines)
+      if (length(idx) == 0) return(NULL)
+        lines[idx[1]]
+    }
 
-  #Store information in a tab
-  ldne_results <- rbind(ldne_results,
-                        data.frame(Dataset = rep(dataset, n_critical_values),
-                                   Pop = rep(population, n_critical_values),
-                                   Marker_type = rep(marker_type, n_critical_values),
-                                   Subset = rep(subsample, n_critical_values),
-                                   loci = rep(snp_used, n_critical_values),
-                                   MAF = crit_freqs,
-                                   NeLD = tail(estimated_ne, n_critical_values),
-                                   JK_CI_down = tail(jk_ci_down,
-                                                     n_critical_values),
-                                   JK_CI_up = tail(jk_ci_up, n_critical_values),
-                                   Overall_LD_r2 = tail(overall_ld_r2,
-                                                        n_critical_values),
-                                   Expected_LD_r2 = tail(expected_ld_r2,
-                                                         n_critical_values)))
+    estimated_ne_line  <- find_line(block_lines, "Estimated Ne\\^")
+    jk_ci_down_line    <- find_line(block_lines, "\\* JackKnife on Samples")
+    jk_ci_up_line      <- block_lines[grep("\\* JackKnife on Samples", block_lines)[1] + 1]
+    overall_ld_r2_line <- find_line(block_lines, "OverAll r\\^2")
+    expected_ld_r2_line <- find_line(block_lines, "Expected r\\^2 Sample")
 
+    estimated_ne   <- if (!is.null(estimated_ne_line))  extract_values(sub("Estimated Ne\\^\\s*=", "", estimated_ne_line))  else rep(NA, n_critical_values)
+    overall_ld_r2  <- if (!is.null(overall_ld_r2_line)) extract_values(sub("OverAll r\\^2\\s*=", "", overall_ld_r2_line))   else rep(NA, n_critical_values)
+    expected_ld_r2 <- if (!is.null(expected_ld_r2_line)) extract_values(sub("Expected r\\^2 Sample\\s*=", "", expected_ld_r2_line)) else rep(NA, n_critical_values)
+
+    # JackKnife : if all Ne infinite, JackNife on Samples line absents
+    jk_idx <- grep("\\* JackKnife on Samples", block_lines)
+    if (length(jk_idx) > 0) {
+      jk_ci_down <- extract_values(sub("\\* JackKnife on Samples", "", block_lines[jk_idx[1]]))
+      jk_ci_up   <- extract_values(block_lines[jk_idx[1] + 1])
+    } else {
+      jk_ci_down <- rep(NA, n_critical_values)
+      jk_ci_up   <- rep(NA, n_critical_values)
+    }
+
+    non_poly_line <- block_lines[grepl("Total non-polymorphic", block_lines)]
+    if (length(non_poly_line) > 0) {
+      non_poly <- as.numeric(sub(".*Total non-polymorphic\\s*=\\s*([0-9]+).*", "\\1", non_poly_line[1]))
+      loci_polymorphic <- as.numeric(loci_used) - non_poly
+    } else {
+      loci_polymorphic <- as.numeric(loci_used)
+    }
+
+    #Check extract values
+    extracted_lengths <- c(
+      length(tail(estimated_ne,  n_critical_values)),
+      length(tail(jk_ci_down,    n_critical_values)),
+      length(tail(jk_ci_up,      n_critical_values)),
+      length(tail(overall_ld_r2, n_critical_values)),
+      length(tail(expected_ld_r2,n_critical_values))
+    )
+
+    if (any(extracted_lengths != n_critical_values)) {
+      message("Skipping pop ", i, " in ", text_file,
+              ": extracted value counts don't match n_critical_values (",
+              n_critical_values, "). Got: ", paste(extracted_lengths, collapse=", "))
+      next
+    }
+    
+    # Get population name from pop_order
+    population <- pop_order_file$Pop[pop_order_file$pop_count == i]
+    if (length(population) == 0) {
+      population <- paste0("Unknown_Pop_", i)
+    } else {
+      population <- population[1]  # Ensure scalar — take first match only
+    }
+    
+    # Store results
+    ldne_results <- rbind(ldne_results,
+                          data.frame(
+                            Dataset        = rep(dataset, n_critical_values),
+                            Pop            = rep(population, n_critical_values),
+                            Marker_type    = rep(marker_type, n_critical_values),
+                            Subset         = rep(subsample, n_critical_values),
+                            loci           = rep(loci_used, n_critical_values),
+                            Polymorphic_loci = rep(loci_polymorphic, n_critical_values),
+                            MAF            = crit_freqs,
+                            NeLD           = tail(estimated_ne, n_critical_values),
+                            JK_CI_down     = tail(jk_ci_down, n_critical_values),
+                            JK_CI_up       = tail(jk_ci_up, n_critical_values),
+                            Overall_LD_r2  = tail(overall_ld_r2, n_critical_values),
+                            Expected_LD_r2 = tail(expected_ld_r2, n_critical_values)
+                          ))
+  }
 }
 
 ldne_results <- ldne_results %>%

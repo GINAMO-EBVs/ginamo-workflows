@@ -1,7 +1,10 @@
 #!/bin/bash
 
-#Exit on error
-set -e
+# Print an error message to stderr and exit with code 1
+die() {
+    echo "ERROR: $*" >&2
+    exit 1
+}
 
 input_file="$1"
 input_name="$2"
@@ -27,17 +30,45 @@ elif [[ "$input_format" == "tabular" ]] && [[ "$output_format" == "genepop" ]]; 
     digit_num="$6"
     
 elif [[ "$input_format" == "genepop" ]] && [[ "$output_format" == "bayescan" ]]; then
-    marker_type="$5"
-    alleles_coded="$6"
+    indpop="$5"
+    [[ -f "$indpop" ]] || die "Input indpop was not found: $indpop"
+    marker_type="$6"
+    alleles_coded="$7"
 fi
 
-output_dir="convert_directory"
+##### Validate inputs #####
+# Check that input files exist on disk
+[[ -f "$input_file" ]] || die "Input VCF was not found: $input_file"
 
 ##### Check output directory #####
+readonly output_dir="convert_directory"
+readonly pop_dir="pop_affiliation"
 
 if [[ ! -d "${output_dir}" ]]; then
-    echo "ERROR: Failed to create output directory: ${output_dir}" >&2
+    die "ERROR: Failed to create output directory: ${output_dir}"
 fi
+
+if [[ ! -d "${pop_dir}" ]]; then
+    die "ERROR: Failed to create output directory: ${pop_dir}"
+fi
+
+##### Build output filename #####
+name_without_ext="$(basename -- "$input_name")"
+name_without_ext="${name_without_ext%.vcf}"
+name_without_ext="${name_without_ext%.txt}"
+name_without_ext="${name_without_ext%.tabular}"
+
+# In Galaxy, dataset names may contain a trailing label in parentheses,
+# e.g. "Tool name (dataset 42)". Extract the content inside the last
+# parentheses if present; otherwise use the full name.
+regex='\(([^)]+)\)[[:space:]]*$'
+if [[ "$name_without_ext" =~ $regex ]]; then
+    base_name="${BASH_REMATCH[1]}"
+else
+    base_name="$name_without_ext"
+fi
+
+[[ -n "$base_name" ]] || die "Could not derive a valid output filename from: $input_name"
 
 ###############################################################################
 #Function: spid_vcf2genepop
@@ -253,7 +284,7 @@ head -1 "$input" | xxd | head -3 >&2
         done
         
         for pop_name in $(printf '%s\n' "${!populations[@]}" | sort); do
-            echo "POP"
+            echo "Pop"
             
             for ind_name in ${pop_individuals[$pop_name]}; do
                 local genotypes="${pop_genotypes[${pop_name}__${ind_name}]}"
@@ -269,31 +300,39 @@ head -1 "$input" | xxd | head -3 >&2
 # Main execution
 #########################################
 
-    ##### Check if file exists #####
-    if [[ ! -f "$input_file" ]]; then
-        echo "File not found, ignored: $input_file"
-        exit 1
-    fi
-
-    # Extract base name (handle .vcf)
-    regex='\(([^)]+)\)[[:space:]]*$'
-    if [[ "$input_name" =~ $regex ]]; then
-        #Extract content between last parentheses
-        base_name="${BASH_REMATCH[1]}"
-    else
-        # No parentheses, use original name
-        base_name=$(basename "$input_name")
-    fi
-    
-    #Remove extension
-    base_name=${base_name%.*}
-
     if [ "$input_format" = "vcf" ] && [ "$output_format" = "genepop" ]; then
         output_genfile="${output_dir}/${base_name}_genepop.txt"
         spid_vcf2genepop "$ploidy" "$pl_gl" "$exclude_loci" "$non_polymorphic" "$indels" "$regions" "$PHRED_SCALED" "$MISSING_GQ" "$MISSING_DEPTH" "$individuals" "$indpop" "$pop_file"
         PGDSpider2-cli -inputfile "$input_file" -inputformat VCF -outputfile "$output_genfile" -outputformat GENEPOP -spid spid_file.spid
 
     elif [ "$input_format" = "genepop" ] && [ "$output_format" = "bayescan" ]; then
+        ##### Retrieve pop order #####
+        pop_order_file="${pop_dir}/pop_affiliation.txt"
+        in_pop=false
+        first_ind=false
+
+        while IFS= read -r line; do
+            line="${line%$'\r'}"   # remove windows end lines
+
+                if [[ "${line,,}" == "pop" ]]; then
+                in_pop=true
+                first_ind=true
+                continue
+            fi
+
+            if [[ "$in_pop" == true && "$first_ind" == true && -n "$line" ]]; then
+                pop_count=$((pop_count + 1))
+                ind_id=$(echo "$line" | cut -d',' -f1 | xargs)
+                actual_pop_name=$(awk -v id="$ind_id" '{ gsub(/\r/, ""); if ($1 == id) print $2 }' "$indpop")
+                if [[ -z "$actual_pop_name" ]]; then
+                    actual_pop_name="Unknown_Pop_${pop_count}"
+                fi
+                echo -e "${actual_pop_name}\t${pop_count}" >> "$pop_order_file"
+                first_ind=false
+            fi
+        done < "$input_file"
+
+        ##### Bayes conversion #####
         output_genfile="${output_dir}/${base_name}_bayes.txt"
         spid_genepop2bayes "$marker_type" "$alleles_coded"
         PGDSpider2-cli -inputfile "$input_file" -inputformat GENEPOP -outputfile "$output_genfile" -outputformat GESTE_BAYE_SCAN -spid spid_file.spid

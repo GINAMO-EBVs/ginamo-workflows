@@ -187,7 +187,7 @@ Usage
 -----
 
 This tool applies a series of configurable filters to a VCF file.
-As input, the user provides one or more VCF files (Danecek *et al.* 2011). The user selects the filters in the order of application and completes the sections for each filter with the desired parameters. For more information on the parameters and tips for each filter, see the help section corresponding to the tool.
+As input, the user provides one VCF files (Danecek *et al.* 2011). The user selects the filters in the order of application and completes the sections for each filter with the desired parameters. For more information on the parameters and tips for each filter, see the help section corresponding to the tool.
 
 For each VCF file input, all selected filters are applied and a single VCF file is produced as output. The tool also produces a table summarising SNPs and individuals at each step.
 

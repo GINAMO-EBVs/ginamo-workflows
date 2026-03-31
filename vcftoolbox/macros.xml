@@ -16,6 +16,12 @@
         </requirements>
     </xml>
 
+    <xml name="requirements_vcftools">
+        <requirements>
+            <requirement type="package" version="0.1.17">vcftools</requirement>
+        </requirements>
+    </xml>
+
     <xml name="param_vcf_input">
         <param name="vcf_input" type="data" format="vcf" label="VCF file"
             help="File containing SNP data in VCF format. You can upload a simple file, multiple files or a dataset collection."/>
