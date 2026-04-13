@@ -20,7 +20,6 @@ ssr_md         <- as.numeric(get_arg(args, "--ssr-md"))
 low_quar       <- as.numeric(get_arg(args, "--low-quar"))
 high_quar      <- as.numeric(get_arg(args, "--high-quar"))
 multi          <- as.numeric(get_arg(args, "--multi"))
-threshold_pval <- as.numeric(get_arg(args, "--threshold-pval"))
  
 # Clean input_name (handle Galaxy element_identifier with parentheses)
 if (grepl("\\([^)]+\\)\\s*$", input_name)) {
@@ -29,13 +28,12 @@ if (grepl("\\([^)]+\\)\\s*$", input_name)) {
   input_name <- sub("\\.[^.]+$", "", input_name)
 }
  
-# Parse filter order from comma-separated string (e.g. "A,B,C,D")
+# Parse filter order from comma-separated string (e.g. "A,B,C")
 # Map letters to internal filter names, preserving user-defined order
 filter_map <- list(
   A = "ind_md_ssr",
   B = "ssr_md_filtering",
-  C = "null_allele",
-  D = "LD_filtering"
+  C = "null_allele"
 )
  
 if (filter_order == "") {
@@ -48,7 +46,6 @@ filters <- filters[!is.na(filters)]
  
 message("Filters to apply (in order): ", paste(filters, collapse = " -> "))
  
-
 # Load data
 data <- read.csv(input_path, head = TRUE, sep = "\t")
 
@@ -63,14 +60,13 @@ genind_file <- df2genind(
   ind.names = data$Ind
 )
 
-
 #####################################################################################
 # Function : ind_md_filtering
 # Description : Remove individuals with more missing data than the defined threshold
 ######################################################################################
 
 ind_md_filtering <- function(genind_file, ind_md){
-  genind_ind_md <- missingno(genind_file, type = "loci", cutoff = ind_md)
+  genind_ind_md <- missingno(genind_file, type = "geno", cutoff = ind_md)
 
   return(genind_ind_md)
 }
@@ -81,7 +77,7 @@ ind_md_filtering <- function(genind_file, ind_md){
 ####################################################################################
 
 ssr_md_filtering <- function(genind_file, ssr_md){
-  genind_ssr_md <- missingno(genind_file, type = "geno", cutoff = ssr_md)
+  genind_ssr_md <- missingno(genind_file, type = "loci", cutoff = ssr_md)
 
   return(genind_ssr_md)
 }
@@ -127,151 +123,17 @@ null_allele <- function(genind_file, low_quar, high_quar, multi) {
   return(genind_without_outliers)
 }
 
-####################################################################
-# Function : genind_to_genepop
-# Description : Convert genind into a genepop file, compatible with 
-#               Genepop package.
-#####################################################################
-
-genind_to_genepop <- function(genind_file, file) {
-  
-  tab <- genind_file@tab
-  loci <- genind_file@loc.fac
-  loc_names <- locNames(genind_file)
-  pops <- pop(genind_file)
-  
-  # Automatic detection of the number of digits describing each allle
-  all_alleles <- unlist(alleles(genind_file))
-  digit_num <- max(nchar(all_alleles), na.rm = TRUE)
-  message("Number of digits describing each allele : ", digit_num)
-  
-  lines_out <- c("SSR data converted from genind")
-  lines_out <- c(lines_out, loc_names)
-  
-  for (p in levels(pops)) {
-    lines_out <- c(lines_out, "POP")
-    inds <- which(pops == p)
-    
-    for (i in inds) {
-      geno_parts <- c()
-      
-      for (loc in loc_names) {
-        alleles <- tab[i, loci == loc]
-        allele_names <- gsub(".*\\.", "", names(alleles))
-        called <- allele_names[!is.na(alleles) & alleles > 0]
-        
-        if (length(called) == 0) {
-          geno_parts <- c(geno_parts, strrep("0", digit_num * 2))
-        } else if (length(called) == 1) {
-          a <- sprintf(paste0("%0", digit_num, "d"), as.integer(called[1]))
-          geno_parts <- c(geno_parts, paste0(a, a))
-        } else {
-          a1 <- sprintf(paste0("%0", digit_num, "d"), as.integer(called[1]))
-          a2 <- sprintf(paste0("%0", digit_num, "d"), as.integer(called[2]))
-          geno_parts <- c(geno_parts, paste0(a1, a2))
-        }
-      }
-      
-      ind_name <- rownames(tab)[i]
-      lines_out <- c(lines_out, paste0(ind_name, " ,  ", paste(geno_parts, collapse = " ")))
-    }
-  }
-  
-  writeLines(lines_out, file)
-}
-
-
-#################################################################################################
-# Function : LD_filtering
-# Description : Performs the exact test for each pair of loci for each population using Genepop 
-#               Deletes the locus involved  in the most pairs with significant p-values.
-#################################################################################################
-
-LD_filtering <- function(genepop_file_path, threshold_pval, genind_file) {
- 
-  output_ld <- "LD_test.txt"
- 
-  # Write settings file for the Genepop binary
-  # Option 2 = Linkage disequilibrium exact test
-  settings_file <- "genepop_LD_settings.txt"
-  writeLines(c(
-    paste0("InputFile=", genepop_file_path),
-    paste0("OutputFile=", output_ld),
-    "MenuOptions=2.1",
-    "Dememorization=10000",
-    "BatchNumber=100",
-    "BatchSize=5000"
-  ), settings_file)
- 
-  # Call the Genepop binary
-  ret <- system2("Genepop", args = settings_file, stdout = TRUE, stderr = TRUE)
-  message(paste(ret, collapse = "\n"))
- 
-  if (!file.exists(output_ld)) {
-    stop("Genepop binary did not produce the output file. Check the log above.")
-  }
- 
-  # Read output file from Genepop binary
-  # Output format is identical to what test_LD() from the R package produces
-  lines <- readLines(output_ld)
-  lines <- trimws(lines, which = "right")
- 
-  # Extraction of the pairs with significant p-values
-  # Extract only the lines containing the results for locus pairs
-  global_lines <- lines[grepl("&", lines)]
- 
-  global_table <- do.call(rbind, lapply(global_lines, function(l) {
-    parts <- strsplit(trimws(l), "\\s+")[[1]]
-    # Extract p-values from the 6th position and remove special characters
-    pval_raw <- gsub("[><]", "", parts[6])
-    # Safety check: if the 6th part is empty, try to get the P-value from the 5th part
-    if (is.na(pval_raw)) pval_raw <- gsub("[><]", "", parts[5])
-    data.frame(
-      Locus1  = parts[1],
-      Locus2  = parts[3],
-      P_value = as.numeric(pval_raw),
-      stringsAsFactors = FALSE
-    )
-  }))
- 
-  # Filter the table to keep only pairs with significant P-values
-  pairs_sig <- global_table[global_table$P_value < threshold_pval, ]
- 
-  # Greedy strategy : Deletes the locus involved in the most pairs with significant p-values.
-  loci_to_remove <- c()
-  pairs_remaining <- pairs_sig
- 
-  while (nrow(pairs_remaining) > 0) {
-  
-    # Count how many times each locus appears in the remaining pairs
-    all_loci <- c(pairs_remaining$Locus1, pairs_remaining$Locus2)
-    compte <- sort(table(all_loci), decreasing = TRUE)
-  
-    # Remove the most frequent locus
-    locus_to_remove <- names(compte)[1]
-    loci_to_remove <- c(loci_to_remove, locus_to_remove)
-  
-    # Remove all pairs involving this locus
-    pairs_remaining <- pairs_remaining[
-      pairs_remaining$Locus1 != locus_to_remove & 
-        pairs_remaining$Locus2 != locus_to_remove, 
-    ]
-  }
- 
-  message("Deleted loci : ", paste(loci_to_remove, collapse = ", "))
- 
-  # Delete loci in the genind
-  loci_to_keep <- setdiff(locNames(genind_file), loci_to_remove)
-  genind_nLD <- genind_file[loc = loci_to_keep]
- 
-  return(genind_nLD)
- 
-}
-
-########################
+#########################
 # Main execution
-# Conversion et test LD sur le genind final (après filtrage missing data et allèles nuls)
-##########################
+#########################
+
+# Suffix accumulation for output filename
+filter_suffixes <- list(
+  ind_md_ssr       = "_mdInd",
+  ssr_md_filtering = "_mdloci",
+  null_allele      = "_null"
+)
+output_suffix <- ""
 
 # Summary table
 summary_rows <- list()
@@ -280,17 +142,15 @@ summary_rows <- list()
 filter_labels <- list(
   ind_md_ssr       = "Individuals missing data",
   ssr_md_filtering = "Loci missing data",
-  null_allele      = "Null alleles",
-  LD_filtering     = "Linked loci (LD)"
+  null_allele      = "Null alleles"
 )
  
 filter_params <- list(
   ind_md_ssr       = paste0("MAX_MISSING_IND=", ind_md),
   ssr_md_filtering = paste0("MAX_MISSING_LOCI=", ssr_md),
-  null_allele      = paste0("low_quar=", low_quar, ", high_quar=", high_quar, ", IQR_multi=", multi),
-  LD_filtering     = paste0("pval_threshold=", threshold_pval)
+  null_allele      = paste0("low_quar=", low_quar, ", high_quar=", high_quar, ", IQR_multi=", multi)
 )
- 
+
 # Initial row (before any filtering)
 summary_rows[[1]] <- data.frame(
   File   = input_name,
@@ -301,7 +161,7 @@ summary_rows[[1]] <- data.frame(
   n_loci = nLoc(genind_file),
   stringsAsFactors = FALSE
 )
- 
+
 for (i in seq_along(filters)) {
   step <- filters[i]
  
@@ -317,27 +177,33 @@ for (i in seq_along(filters)) {
     message("==> Filter: null_allele (low_quar=", low_quar,
             ", high_quar=", high_quar, ", multi=", multi, ")")
     genind_file <- null_allele(genind_file, low_quar, high_quar, multi)
- 
-  } else if (step == "LD_filtering") {
-    message("==> Filter: LD_filtering (threshold_pval = ", threshold_pval, ")")
-    genind_to_genepop(genind_file, "filter_output/genepop_for_LD.txt")
-    genind_file <- LD_filtering("filter_output/genepop_for_LD.txt",
-                                threshold_pval, genind_file)
+
   } else {
     warning("Unknown filter: ", step, " — skipped.")
   }
- 
+
+  output_suffix <- paste0(output_suffix, filter_suffixes[[step]])
+
+  if (nInd(genind_file) == 0) {
+    stop("No individuals remaining after filter '", step, "'. ",
+         "The threshold is too strict: all individuals were removed. Please use a higher value.")
+  }
+  if (nLoc(genind_file) == 0) {
+    stop("No loci remaining after filter '", step, "'. ",
+         "The threshold is too strict: all loci were removed. Please use a higher value.")
+  }
+
   summary_rows[[i + 1]] <- data.frame(
-    File   = input_name,
-    Step   = i,
-    Filter = filter_labels[[step]],
-    Params = filter_params[[step]],
-    n_ind  = nInd(genind_file),
-    n_loci = nLoc(genind_file),
-    stringsAsFactors = FALSE
+  File   = input_name,
+  Step   = i,
+  Filter = filter_labels[[step]],
+  Params = filter_params[[step]],
+  n_ind  = nInd(genind_file),
+  n_loci = nLoc(genind_file),
+  stringsAsFactors = FALSE
   )
 }
- 
+
 # Write filtering summary table
 summary_table <- do.call(rbind, summary_rows)
 output_summary <- paste0("summary/filtering_summary.txt")
@@ -356,7 +222,7 @@ df_out <- data.frame(
   row.names = NULL
 )
  
-output_file <- paste0("filter_output/", input_name,"_filtered.txt")
+output_file <- paste0("filter_output/", input_name, output_suffix, ".txt")
 write.table(df_out,
             file      = output_file,
             sep       = "\t",

@@ -1,6 +1,6 @@
-<tool id="ssrfilter" name="Filtering SSR" version="0.1.0">
+<tool id="ssrfilter" name="Filtering SSR" version="0.1.0" profile="25.0">
     <description>
-        for missing data (individuals and loci), null alleles and linked loci.
+        for missing data (individuals and loci), and null alleles.
     </description>
 
     <requirements>
@@ -8,8 +8,11 @@
         <requirement type="package" version="2.9.8">r-poppr</requirement>
         <requirement type="package" version="2.1.11">r-adegenet</requirement>
         <requirement type="package" version="0.5_11">r-hierfstat</requirement>
-        <requirement type="package" version="1.2.11">genepop</requirement>
     </requirements>
+
+    <required_files>
+        <include path="SSR_filtering.R" />
+    </required_files>
 
     <command detect_errors="exit_code"><![CDATA[
         mkdir -p filter_output &&
@@ -25,7 +28,6 @@
             --low-quar '${filter_null_allele.low_quar}'
             --high-quar '${filter_null_allele.high_quar}'
             --multi '${filter_null_allele.multi}'
-            --threshold-pval '${filter_ld.threshold_pval}'
 
     ]]></command>
 
@@ -39,7 +41,6 @@
         <option value="A">A: Individuals with missing data </option>
         <option value="B">B: Loci with missing data</option>
         <option value="C">C: Null alleles (paralogues) </option>
-        <option value="D">D: Linked loci (Exact test with Genepop) </option>
     </param>
 
     
@@ -61,19 +62,14 @@
         <param name="multi" type="float" value="1.5" min="0"
             label="IQR multiplier"/>
     </section>
-
-    <section name="filter_ld" title="[D] Linked loci (Exact test with Genepop)" expanded="false">
-        <param name="threshold_pval" type="float" value="0.05" min="0" max="1"
-            label="P-value threshold for LD test"/>
-    </section>
 </inputs>
 
     <outputs>
-        <data name="filtered_data" format="txt" label="${tool.name}">
+        <data name="filtered_data" format="tabular" label="${tool.name}">
             <discover_datasets pattern="(?P&lt;designation&gt;.+)\.txt$" directory="filter_output" visible="true" assign_primary_output="true"/>
         </data>
         
-        <data name="filtering_summary" format="tabular" from_work_dir="summary/filtering_summary.txt" label=" Filtering: Number of SNPs and individuals"/>
+        <data name="filtering_summary" format="tabular" from_work_dir="summary/filtering_summary.txt" label=" Filtering: Number of loci and individuals"/>
 
         <data name="boxplot_fis" format="png" label="Fis distribution boxplot — null allele filter">
             <discover_datasets pattern="(?P&lt;designation&gt;.+)\.png$" directory="figure_output" visible="true" assign_primary_output="true"/>
@@ -86,20 +82,46 @@
         <param name="input_data" value="test_SSR.txt"/>
         <param name="filter_order" value="A"/>
         <section name="filter_ind_md">
-            <param name="ind_md" value="0.30"/>
+            <param name="ind_md" value="0.1"/>
         </section>
-        <output name="filtered_data" file="filter_output/test_SSR_filtered.txt" count="1"/>
-        <output name="filtering_summary" file="summary/test_SSR_summary.txt" count="1"/>
+        <output name="filtered_data" count="1" ftype="tabular">
+            <assert_contents>
+                <has_n_lines n="192"/>
+                <has_n_columns n="48"/>
+                <has_text text="Lobo004"/>
+            </assert_contents>
+        </output>
+        <output name="filtering_summary" ftype="tabular">
+            <assert_contents>
+                <has_n_lines n="3"/>
+                <has_n_columns n="6"/>
+                <has_line_matching expression="File\tStep\tFilter\tParams\tn_ind\tn_loci"/>
+                <has_line_matching expression="test_SSR\t1\tIndividuals missing data\tMAX_MISSING_IND=0.1\t191\t46"/>
+            </assert_contents>
+        </output>
     </test>
 
     <test expect_num_outputs="2">
         <param name="input_data" value="test_SSR.txt"/>
         <param name="filter_order" value="B"/>
         <section name="filter_ssr_md">
-            <param name="ssr_md" value="0.30"/>
+            <param name="ssr_md" value="0.1"/>
         </section>
-        <output name="filtered_data" file="filter_output/test_SSR_filtered.txt" count="1"/>
-        <output name="filtering_summary" file="summary/test_SSR_summary.txt" count="1"/>
+        <output name="filtered_data" count="1" ftype="tabular">
+            <assert_contents>
+                <has_n_lines n="219"/>
+                <has_n_columns n="43"/>
+                <has_text text="Lobo004"/>
+            </assert_contents>
+        </output>
+        <output name="filtering_summary" ftype="tabular">
+            <assert_contents>
+                <has_n_lines n="3"/>
+                <has_n_columns n="6"/>
+                <has_line_matching expression="File\tStep\tFilter\tParams\tn_ind\tn_loci"/>
+                <has_line_matching expression="test_SSR\t1\tLoci missing data\tMAX_MISSING_LOCI=0.1\t218\t41"/>
+            </assert_contents>
+        </output>
     </test>
 
     <test expect_num_outputs="3">
@@ -110,41 +132,62 @@
             <param name="high_quar" value="0.75"/>
             <param name="multi" value="1.5"/>
         </section>
-        <output name="filtered_data" file="filter_output/test_SSR_filtered.txt" count="1"/>
-        <output name="filtering_summary" file="summary/test_SSR_summary.txt" count="1"/>
-        <output name="boxplot_fis" file="figure_output/test_SSR_fis_null_allele.png" count="1"/>
-    </test>
-
-    <test expect_num_outputs="2">
-        <param name="input_data" value="test_SSR.txt"/>
-        <param name="filter_order" value="D"/>
-        <section name="filter_ld">
-            <param name="threshold_pval" value="0.05"/>
-        </section>
-        <output name="filtered_data" file="filter_output/test_SSR_filtered.txt" count="1"/>
-        <output name="filtering_summary" file="summary/test_SSR_summary.txt" count="1"/>
+        <output name="filtered_data" count="1" ftype="tabular">
+            <assert_contents>
+                <has_n_lines n="219"/>
+                <has_n_columns n="48"/>
+                <has_text text="Lobo004"/>
+            </assert_contents>
+        </output>
+        <output name="filtering_summary" ftype="tabular">
+            <assert_contents>
+                <has_n_lines n="3"/>
+                <has_n_columns n="6"/>
+                <has_line_matching expression="File\tStep\tFilter\tParams\tn_ind\tn_loci"/>
+                <has_line_matching expression="test_SSR\t1\tNull alleles\tlow_quar=0.25, high_quar=0.75, IQR_multi=1.5\t218\t46"/>
+            </assert_contents>
+        </output>
+        <output name="boxplot_fis" ftype="png" count="1">
+            <assert_contents>
+                <has_image_height height="600"/>
+            </assert_contents>
+        </output>
     </test>
 
     <test expect_num_outputs="3">
         <param name="input_data" value="test_SSR.txt"/>
-        <param name="filter_order" value="A,B,D,C"/>
+        <param name="filter_order" value="A,B,C"/>
         <section name="filter_ind_md">
-            <param name="ind_md" value="0.30"/>
+            <param name="ind_md" value="0.1"/>
         </section>
         <section name="filter_ssr_md">
-            <param name="ssr_md" value="0.30"/>
+            <param name="ssr_md" value="0.1"/>
         </section>
         <section name="filter_null_allele">
             <param name="low_quar" value="0.25"/>
             <param name="high_quar" value="0.75"/>
             <param name="multi" value="1.5"/>
         </section>
-        <section name="filter_ld">
-            <param name="threshold_pval" value="0.05"/>
-        </section>
-        <output name="filtered_data" file="filter_output/test_SSR_filtered.txt" count="1"/>
-        <output name="filtering_summary" file="summary/test_SSR_summary.txt" count="1"/>
-        <output name="boxplot_fis" file="figure_output/test_SSR_fis_null_allele.png" count="1"/>
+        <output name="filtered_data" count="1" ftype="tabular">
+            <assert_contents>
+                <has_n_lines n="192"/>
+                <has_n_columns n="45"/>
+                <has_text text="Lobo004"/>
+            </assert_contents>
+        </output>
+        <output name="filtering_summary" ftype="tabular">
+            <assert_contents>
+                <has_n_lines n="5"/>
+                <has_n_columns n="6"/>
+                <has_line_matching expression="File\tStep\tFilter\tParams\tn_ind\tn_loci"/>
+                <has_line_matching expression="test_SSR\t3\tNull alleles\tlow_quar=0.25, high_quar=0.75, IQR_multi=1.5\t191\t43"/>
+            </assert_contents>
+        </output>
+        <output name="boxplot_fis" ftype="png" count="1">
+            <assert_contents>
+                <has_image_height height="600"/>
+            </assert_contents>
+        </output>
     </test>
 </tests>
 
@@ -158,8 +201,7 @@ This tool filters microsatellite (SSR) genotype data by applying up to four filt
 
 1. **Remove individuals with too much missing data** — removes individuals whose proportion of missing genotypes exceeds the defined threshold.
 2. **Remove loci with too much missing data** — removes SSR loci whose proportion of missing genotypes across individuals exceeds the defined threshold.
-3. **Filter null alleles (paralogues)** — estimates the null allele frequency at each locus using the selected method (Brookfield 1, Brookfield 2 or Chakraborty). Loci exceeding the frequency threshold are removed, flagged or corrected.
-4. **Filter linked loci (linkage disequilibrium)** — identifies pairs of loci in significant linkage disequilibrium (LD) using the selected test and multiple testing correction. One locus per linked pair is removed according to the selected criterion.
+3. **Filter null alleles (paralogues)** — detects loci likely carrying null or paralogous alleles based on the distribution of Fis across loci. Outlier loci are identified using the IQR method: loci whose Fis falls outside ``[Q1 - k*IQR, Q3 + k*IQR]`` are removed. The quartiles (Q1, Q3) and the multiplier (k) are user-defined. When only one population is present, Fis is estimated per locus as ``1 - Ho/He``.
 
 The order of filter application follows the order selected in the filter list.
 
@@ -188,57 +230,10 @@ Outputs
     ]]></help>
 
     <citations>
-        <citation type="bibtex">
-            @Manual{adegenet,
-  title        = {adegenet: Exploratory Analysis of Genetic and Genomic Data},
-  author       = {Thibaut Jombart and Zhian N. Kamvar and others},
-  year         = {2022},
-  note         = {R package version 2.1.11},
-  doi          = {10.32614/CRAN.package.adegenet},
-  url          = {https://github.com/thibautjombart/adegenet},
-}
-        </citation>
-        <citation type="bibtex">
-            @Manual{hierfstat,
-  title        = {hierfstat: Estimation and Tests of Hierarchical F-Statistics},
-  author       = {Jerome Goudet},
-  year         = {2005},
-  note         = {R package version 0.5-11},
-  doi          = {10.1111/j.1471-8286.2004.00828.x},
-}
-        </citation>
-        <citation type="bibtex">
-            @article{brookfield1996,
-  author  = {Brookfield, J.F.Y.},
-  title   = {A simple new method for estimating null allele frequency from heterozygote deficiency},
-  journal = {Molecular Ecology},
-  year    = {1996},
-  volume  = {5},
-  number  = {3},
-  pages   = {453--455},
-  doi     = {10.1111/j.1365-294X.1996.tb00336.x},
-}
-        </citation>
-        <citation type="bibtex">
-            @article{chakraborty1992,
-  author  = {Chakraborty, R. and De Andrade, M. and Daiger, S.P. and Budowle, B.},
-  title   = {Apparent heterozygote deficiencies observed in DNA typing data and their implications in forensic applications},
-  journal = {Annals of Human Genetics},
-  year    = {1992},
-  volume  = {56},
-  pages   = {45--57},
-  doi     = {10.1111/j.1469-1809.1992.tb01128.x},
-}
-        </citation>
-        <citation type="bibtex">
-            @Manual{dplyr,
-  title        = {dplyr: A Grammar of Data Manipulation},
-  author       = {Hadley Wickham and Romain François and Lionel Henry and Kirill Müller},
-  year         = {2016},
-  note         = {R package version 1.2.0},
-  doi          = {10.32614/CRAN.package.dplyr},
-  url          = {https://dplyr.tidyverse.org},
-}
-        </citation>
+        <citation type="doi">10.32614/CRAN.package.adegenet</citation>
+        <citation type="doi">10.1111/j.1471-8286.2004.00828.x</citation>
+        <citation type="doi">10.32614/CRAN.package.dplyr</citation>
+        <citation type="doi">10.7717/peerj.281</citation>
+        <citation type="doi">10.3389/fgene.2015.00208</citation>
     </citations>
 </tool>
