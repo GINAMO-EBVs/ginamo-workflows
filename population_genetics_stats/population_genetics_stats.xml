@@ -1,4 +1,4 @@
-<tool id="population_genetics_stats" name="Population Genetics Statistics:" version="0.1.0">
+<tool id="population_genetics_stats" name="Population Genetics Statistics:" version="0.1.0" profile="25.0">
     <description>
         He, Hobs, Fis, allelic richness and pairwise values (Fst, DJost, Gst Nei)
     </description>
@@ -42,10 +42,10 @@
 
     <inputs>
         <conditional name="data_conditional">
-        <param name="marker_type" type="select" label="Select your data format">
-            <option value="SNP" selected="true">SNP</option>
-            <option value="SSR">SSR</option>
-        </param>
+            <param name="marker_type" type="select" label="Select your data format">
+                <option value="SNP" selected="true">SNP</option>
+                <option value="SSR">SSR</option>
+            </param>
         
         <when value="SNP">
             <param name="input_data" type="data" format="vcf" label="Upload your VCF file"
