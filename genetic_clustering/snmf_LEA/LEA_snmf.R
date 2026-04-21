@@ -18,7 +18,9 @@ parse_args <- function(args) {
     k_fixed       = NULL,    # NULL = auto, integer = K fixed
     k_min         = 1L,
     k_max         = 10L,
-    fst_check     = NULL
+    fst_check     = NULL,
+    threshold_q   = NULL,
+    repetitions = NULL
   )
   i <- 1
   while (i <= length(args)) {
@@ -29,6 +31,8 @@ parse_args <- function(args) {
            "--k-max"     = { params$k_max         <- as.integer(args[i+1]); i <- i+2 },
            "--k-fixed"   = { params$k_fixed       <- as.integer(args[i+1]); i <- i+2 },
            "--fst-check" = { params$fst_check     <- args[i+1]; i <- i+2},
+           "--threshold-q" = { params$threshold_q <- as.numeric(args[i+1]); i <- i+2},
+           "--repetitions" = { params$repetitions <- as.integer(args[i+1]); i <- i+2},
            { stop(paste("Unknown argument :", args[i])) }
     )
   }
@@ -81,7 +85,7 @@ load_genetic_data <- function(file, format) {
     }
     geno_matrix <- matrix(as.numeric(ssr_expanded), nrow = nrow(raw_data))
   }
-    return(list(indiv_names = indiv_names, geno_matrix = geno_matrix))
+  return(list(indiv_names = indiv_names, geno_matrix = geno_matrix))
 }
 
 
@@ -121,7 +125,7 @@ convert_to_hierfstat <- function(geno_mat, pop, format) {
     }
     colnames(formatted_geno) <- colnames(geno_mat)[locus_indices]
   }
-
+  
   final_df <- data.frame(Pop = pop, formatted_geno)
   return(final_df)
 }
@@ -136,8 +140,8 @@ convert_to_hierfstat <- function(geno_mat, pop, format) {
 #
 # Admixed individuals (< threshold_q) are excluded from the test but kept in outputs.
 validate_k <- function(project, current_k, geno_matrix,
-                       nboot = 999, threshold_q = 0.80, alpha = 0.05,
-                       method = "Nei87") {
+                       nboot = 999,
+                       method = "WC84") {
   
   if (current_k <= 1) return(TRUE)
   
@@ -170,8 +174,7 @@ validate_k <- function(project, current_k, geno_matrix,
   }
   
   # Step 1: observed pairwise Fst (all pairs)
-  dist_obs <- tryCatch(as.matrix(genet.dist(dat_hf, method = method)),
-                       error = function(e) NULL)
+  dist_obs <- as.matrix(genet.dist(dat_hf, method = method))
   if (is.null(dist_obs)) {
     cat("  -> genet.dist error. K invalid.\n")
     return(FALSE)
@@ -190,10 +193,27 @@ validate_k <- function(project, current_k, geno_matrix,
   pair_mask   <- pop_pure %in% c(pop_a, pop_b)
   dat_hf_pair <- dat_hf[pair_mask, , drop = FALSE]
   
-  boot_res <- tryCatch(
-    boot.ppfst(dat_hf_pair, nboot = nboot, quant = c(alpha / 2, 1 - alpha / 2)),
-    error = function(e) NULL
-  )
+  #Conversion in numeric matrix
+  pop_vector <- as.numeric(as.factor(dat_hf_pair[,1]))
+  geno_matrix_pure <- as.matrix(dat_hf_pair[,-1])
+  mode(geno_matrix_pure) <- "numeric"
+  
+  #Keep only SNPs polymorphic
+  #Keep only SNPs polymorphic
+  keep_cols <- apply(geno_matrix_pure, 2, function(x) {
+    valid_data <- na.omit(x)
+    return(length(valid_data) > 0 && length(unique(valid_data)) > 1)
+  })
+  
+  # FIXED: was geno_matrix[, keep_cols, ...] — must be geno_matrix_pure
+  dat_hf_pair_final <- data.frame(Pop = pop_vector, geno_matrix_pure[, keep_cols, drop = FALSE])
+  
+  if (ncol(dat_hf_pair_final) < 2) {
+    cat("  -> ERROR : No actionable SNPs for this pair.\n")
+    return(FALSE)
+  }
+  
+  boot_res <- boot.ppfst(dat_hf_pair_final, nboot = nboot, quant = c(0.025,0.975))
   if (is.null(boot_res)) {
     cat("  -> boot.ppfst error. K invalid.\n")
     return(FALSE)
@@ -217,46 +237,65 @@ plot_cross_entropy <- function(project, k_min, k_max, best_k) {
     CE = sapply(k_min:k_max, function(k) mean(cross.entropy(project, K = k)))
   )
   ggplot(ce_df, aes(x = K, y = CE)) +
-    geom_line(color = "steelblue") +
-    geom_point(color = "steelblue", size = 2.5) +
-    geom_vline(xintercept = best_k, linetype = "dashed", color = "firebrick") +
+    geom_line(color = "#0072B2") +
+    geom_point(color = "#0072B2", size = 2.5) +
+    geom_vline(xintercept = best_k, linetype = "dashed", color = "#D55E00") +
     annotate("text", x = best_k + 0.15, y = max(ce_df$CE),
              label = paste("K retenu =", best_k),
-             hjust = 0, color = "firebrick", size = 3.5) +
+             hjust = 0, color = "#D55E00", size = 3.5) +
     labs(title = "Cross-entropy par K",
-         x = "K (nombre de clusters)",
-         y = "Cross-entropy moyenne") +
+         x = "K (number of clusters)",
+         y = "Average cross-entropy") +
     theme_bw(base_size = 13)
 }
 
 # --- Build structure / admixture barplot ---
+# Individuals are sorted by sNMF-assigned cluster (majority Q), then within
+# each cluster block by descending dominant ancestry proportion — exactly the
+# same logic as the DAPC posterior barplot.
 plot_structure <- function(qmatrix, indiv_names, max_q, assigned, best_k) {
   
-  palette_k <- c("#440154", "#3b528b", "#21908c", "#5dc963",
-                 "#fde725", "#f68f46", "#d94801", "#7f2704",
-                 "#e377c2", "#17becf", "#bcbd22", "#8c564b")
-  colors_k  <- palette_k[seq_len(best_k)]
+  # Okabe-Ito colorblind-friendly palette (same as DAPC script)
+  okabe_ito <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+                 "#0072B2", "#D55E00", "#CC79A7", "#000000")
+  colors_k  <- colorRampPalette(okabe_ito)(best_k)
   
   colnames(qmatrix) <- paste0("P", seq_len(best_k))
   
   q_df <- as.data.frame(qmatrix) %>%
     mutate(
       individual  = indiv_names,
-      statut      = ifelse(max_q >= 0.80, "Pure", "Admixed"),
-      cluster_maj = assigned,
-      q_max       = max_q
+      statut      = ifelse(max_q >= threshold_q, "Pure", "Admixed"),
+      # cluster_maj = sNMF majority-assigned cluster (1..K)
+      cluster_maj = factor(assigned, levels = sort(unique(assigned))),
+      # dominant_q  = ancestry proportion for the assigned cluster
+      #   used to sort individuals within each cluster block (descending)
+      dominant_q  = max_q
     ) %>%
-    arrange(cluster_maj, desc(q_max)) %>%
+    arrange(cluster_maj, desc(dominant_q)) %>%
     mutate(individual = fct_inorder(factor(individual))) %>%
     pivot_longer(cols = starts_with("P"),
                  names_to  = "pop",
                  values_to = "q")
+  
+  # Cluster block sizes (for vertical separators)
+  cluster_sizes <- q_df %>%
+    distinct(individual, cluster_maj) %>%
+    count(cluster_maj) %>%
+    pull(n)
+  separator_x <- cumsum(cluster_sizes) + 0.5
+  # Drop last separator (sits beyond the last bar)
+  separator_x <- separator_x[-length(separator_x)]
   
   ggplot(q_df) +
     geom_col(aes(x = individual, y = q, fill = pop),
              width = 1, color = NA) +
     scale_fill_manual(values = colors_k,
                       labels = paste0("Cluster ", seq_len(best_k))) +
+    # Vertical white separators between cluster blocks
+    geom_vline(xintercept = separator_x,
+               colour = "white", linewidth = 0.6) +
+    # Triangle markers below admixed individuals
     geom_point(
       data = q_df %>% filter(statut == "Admixed") %>% distinct(individual),
       aes(x = individual, y = -0.03),
@@ -267,12 +306,13 @@ plot_structure <- function(qmatrix, indiv_names, max_q, assigned, best_k) {
                        labels = c("0", "0.5", "1")) +
     labs(title   = paste("Structure sNMF - K =", best_k),
          x       = NULL,
-         y       = "Proportion d'ascendance (q)",
+         y       = "Proportion of ancestry (q)",
          fill    = "Cluster",
-         caption = "▼ = individu admixed (q_max < 80%)") +
+         caption = "▼ = admixed (q_max < 80%)") +
     theme_minimal(base_size = 12) +
     theme(
       axis.text.x      = element_blank(),
+      axis.ticks.x     = element_blank(),
       axis.line.y      = element_line(color = "grey50"),
       panel.grid       = element_blank(),
       panel.spacing.x  = unit(0, "lines"),
@@ -289,6 +329,7 @@ k_min     <- params$k_min
 k_max     <- params$k_max
 auto_k    <- is.null(params$k_fixed)
 fst_check <- !is.null(params$fst_check) && tolower(params$fst_check) == "true"
+threshold_q <- params$threshold_q
 
 output_tabular <- "outputs/results_snmf.txt"
 
@@ -303,15 +344,12 @@ indiv_names  <- genetic_data$indiv_names
 geno_matrix  <- genetic_data$geno_matrix
 
 # --- Run sNMF ---
-# alpha = 100 recommandé pour les petits datasets (< 10 000 SNPs)
-# (cf. Connor French tutorial ; Frichot & François 2015)
-# Pour les grands datasets (> 10 000 SNPs), alpha = 10 suffit.
 k_range <- if (auto_k) k_min:k_max else params$k_fixed
 
 project <- snmf("input.geno",
                 K           = k_range,
                 entropy     = TRUE,
-                repetitions = 10,
+                repetitions = params$repetitions,
                 alpha       = 100,
                 project     = "new")
 
@@ -356,10 +394,9 @@ qmatrix  <- Q(project, K = best_k, run = best_run)
 max_q    <- apply(qmatrix, 1, max)
 assigned <- apply(qmatrix, 1, which.max)
 
-n_admixed <- sum(max_q < 0.80)
-n_pure    <- sum(max_q >= 0.80)
-cat(sprintf("Individus purs (>=80%%) : %d | Admixed (<80%%) : %d\n",
-            n_pure, n_admixed))
+n_admixed <- sum(max_q < threshold_q)
+n_pure    <- sum(max_q >= threshold_q)
+
 
 # --- Plots ---
 if (auto_k) {
@@ -377,9 +414,9 @@ colnames(q_proportions) <- paste0("Prop_", colnames(q_proportions))
 
 final_table <- data.frame(
   Individu         = indiv_names,
-  Pop_Assignee     = assigned,
-  Appartenance_max = round(max_q, 3),
-  Statut           = ifelse(max_q >= 0.80, "Pure", "Admixed"),
+  Pop_Assignation     = assigned,
+  Max_ancestry = round(max_q, 3),
+  Statut           = ifelse(max_q >= threshold_q, "Pure", "Admixed"),
   q_proportions,
   stringsAsFactors = FALSE
 )

@@ -1,4 +1,4 @@
-<tool id="genetic_clustering_lea" name="Genetic Clustering" version="0.1.0" profile="25.0">
+<tool id="LEA_snmf_application" name="Genetic Clustering" version="0.1.0" profile="25.0">
     <description>
         with LEA (sNMF) for VCF or SSR data
     </description>
@@ -32,6 +32,8 @@
         Rscript '$__tool_directory__/LEA_snmf.R'
             --input '$input_path'
             --format '$input_format'
+            --repetitions '$repetitions'
+            --threshold-q '$threshold_q'
             #if str($k_mode.k_mode_sel) == "fixed":
                 --k-fixed '$k_mode.k_fixed'
             #else:
@@ -50,6 +52,11 @@
             <option value="vcf">VCF</option>
             <option value="ssr">SSR</option>
         </param>
+
+        <param name="repetitions" type="integer" value="10" min="1" label="Number of repetitions for each value of K"/>
+
+        <param name="threshold_q" type="float" value="0.875"
+                    label="Proportion of ancestry from a cluster required for an individual to be considered pure"/>
 
         <conditional name="k_mode">
             <param name="k_mode_sel" type="select" label="K (number of clusters) setting">
@@ -93,17 +100,18 @@
 
     <tests>
         <test expect_num_outputs="3">
-            <param name="input_data" value="test_vcf_snmf.vcf"/>
+            <param name="input_data" value="test_VCF_clustering.vcf"/>
             <param name="input_format" value="vcf" />
+            <param name="repetitions" value="10"/>
             <conditional name="k_mode">
                 <param name="k_mode_sel" value="auto"/>
-                <param name="k_min"   value="1" />
+                <param name="k_min"   value="2" />
                 <param name="k_max"   value="10" />
                 <param name="fst_check" value="true"/>
             </conditional>
             <output name="output_table" ftype="tabular">
                 <assert_contents>
-                    <has_n_lines n="959" delta="1"/>
+                    <has_n_lines n="2274" delta="1"/>
                 </assert_contents>
             </output>
             <output name="cross_entropy" ftype="png">
@@ -121,15 +129,16 @@
         </test>
 
         <test expect_num_outputs="2">
-            <param name="input_data" value="test_vcf_snmf.vcf"/>
+            <param name="input_data" value="test_VCF_clustering.vcf"/>
             <param name="input_format" value="vcf" />
+            <param name="repetitions" value="10"/>
             <conditional name="k_mode">
                 <param name="k_mode_sel" value="fixed"/>
                 <param name="k_fixed"   value="3" />
             </conditional>
             <output name="output_table" ftype="tabular">
                 <assert_contents>
-                    <has_n_lines n="959" delta="1"/>
+                    <has_n_lines n="2274" delta="1"/>
                 </assert_contents>
             </output>
             <output name="barplot" ftype="png">
@@ -143,6 +152,7 @@
         <test expect_num_outputs="3">
             <param name="input_data" value="test_SSR.txt"/>
             <param name="input_format" value="ssr" />
+            <param name="repetitions" value="10"/>
             <conditional name="k_mode">
                 <param name="k_mode_sel" value="auto"/>
                 <param name="k_min"   value="1" />
@@ -171,6 +181,7 @@
         <test expect_num_outputs="2">
             <param name="input_data" value="test_SSR.txt"/>
             <param name="input_format" value="ssr" />
+            <param name="repetitions" value="10"/>
             <conditional name="k_mode">
                 <param name="k_mode_sel" value="fixed"/>
                 <param name="k_fixed"   value="3" />
@@ -192,20 +203,27 @@
 
 
     <help><![CDATA[
+
 Usage
 =====
 
 As input, the user provides genetic data in VCF format for SNPs (Danecek et al. 2011) or in a tabular format for SSRs (see format below).
 
-This tool runs the sNMF algorithm from the R package LEA to estimate individual ancestry proportions and infer population structure. It automatically converts input data to the required .geno format and evaluates a range of ancestral populations (K) from K_min to K_max.
+This tool runs the sNMF algorithm from the R package LEA to estimate individual ancestry proportions and infer population structure. 
+It automatically converts input data to the required .geno format and evaluates a range of ancestral populations (K) from K_min to K_max.
 
-To ensure the stability of the results, the tool performs a defined number of repetitions (default: 10) for each value of K. The estimation also uses a regularization parameter (alpha), where a value of 100 is recommended for datasets with fewer than 10,000 SNPs, while a value of 10 is more suitable for larger datasets.
+To test the stability of the results, the tool performs a defined number of repetitions for each value of K. 
 
-The tool selects the best K using the cross-entropy criterion (lowest mean = best fit). Optionally, it can validate the chosen K via a pairwise Fst​ permutation test. In this validation step, only "pure" individuals (ancestry proportion ≥ 80%) are used to ensure clusters are well-differentiated; if the minimum Fst​ is not significant (p≥0.05), K is decremented and re-tested.
+The tool follows the recommended steps for applying the snmf function, and selects the best K using a cross-entropy criterion (i.e. lowest mean = best fit). 
+Optionally, it can compare the consistency of the chosen K using pairwise Fst estimated between LEA clusters. 
+In this step, only "pure" individuals are used to ensure that admixed individuals don't blur the differentiation signals among clusters. 
+The user defines a threshold ancestry proportion above which individuals are considered purebred. We recommend using a threshold value of 0.875, which is optimal for distinguishing purebred individuals from first-generation backcrosses (Guichoux *et al*. 2013).
+Then to minimize runtime, the minimum pairwise Fst value is tested using the boot.ppfst function of hierfstat package (Goudet *et al*. 2022) which performs bootstrapping over loci of pairwise Fst. 
+If not significant (p≥0.05), K is decreased by 1, the analysis is re-run for comparison. If the automatically selected K value is not suitable, the user can choose to set the K value manually.
 
-The tool generates two figures : the cross-entropy plot and a STRUCTURE-style barplot, as well as a tabular file summarizing the ancestry and status (Pure or Admixed) of each individual.
+The tool generates two figures : the cross-entropy plot and barplot of individuals' assignment probabilities (as in the commonly used STRUCTURE program), as well as a tabular file summarizing the ancestry and status (Pure or Admixed) of each individual.
 
-Examples files
+Example files
 ==============
 
 **SSR Genotype file (tab):**
@@ -220,17 +238,22 @@ Examples files
 
 **Ancestry summary output table:**
 
-+-----------+-----+------------------+---------+
-| Individu  | Pop | Appartenance_max | Statut  |
-+===========+=====+==================+=========+
-| Sample_01 | 1   | 0.923            | Pure    |
-+-----------+-----+------------------+---------+
-| Sample_02 | 2   | 0.871            | Pure    |
-+-----------+-----+------------------+---------+
-| Sample_03 | 1   | 0.612            | Admixed |
-+-----------+-----+------------------+---------+
++------------------------+-----------------+--------------+---------+--------+--------+--------+
+| Individu               | Pop_Assignation | Max_ancestry | Statut  | Prop_1 | Prop_2 | Prop_3 |
++========================+=================+==============+=========+========+========+========+
+| GA-2_2021_A11-01-m21_1 | 1               | 0.951        | Pure    | 0.9510 | 0.0320 | 0.0170 |
++------------------------+-----------------+--------------+---------+--------+--------+--------+
+| GA-2_2022_A11-01-m22_1 | 2               | 0.908        | Pure    | 0.0648 | 0.9080 | 0.0272 |
++------------------------+-----------------+--------------+---------+--------+--------+--------+
+| GA-2_2021_A11-04-m21_1 | 1               | 0.621        | Admixed | 0.6210 | 0.1802 | 0.1988 |
++------------------------+-----------------+--------------+---------+--------+--------+--------+
+| ...                    | ...             | ...          | ...     | ...    | ...    | ...    |
++------------------------+-----------------+--------------+---------+--------+--------+--------+
 
-Note: The Pop column indicates the majority cluster assigned by the algorithm. Individuals are classified as Admixed if their majority ancestry proportion is below 80%.
+Notes: 
+     - Pop_Assignation indicates the cluster with the highest ancestry proportion for each individual. 
+     - Statut is set to Pure if that proportion exceeds the threshold Q, and Admixed otherwise. 
+     - Prop_1, Prop_2, ... are the ancestry proportions estimated by sNMF for each cluster and sum to 1 per row (one column per K).
 
 See also examples of VCF formats in :  https://samtools.github.io/hts-specs/VCFv4.5.pdf
 
@@ -261,6 +284,8 @@ See also examples of VCF formats in :  https://samtools.github.io/hts-specs/VCFv
         <citation type="doi">10.32614/CRAN.package.ade4</citation>
         <citation type="doi">10.32614/CRAN.package.vcfR</citation>
         <citation type="doi">10.32614/CRAN.package.dplyr</citation>
+        <citation type="doi">10.1111/mec.12125</citation>
+        <citation type="doi">10.32614/CRAN.package.hierfstat</citation>
     </citations>
 
 </tool>

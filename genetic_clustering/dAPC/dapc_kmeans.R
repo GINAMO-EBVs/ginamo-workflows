@@ -193,10 +193,19 @@ print(table(fc_final$grp))
 
 ##### DAPC -- paxes = k-1 (Thia 2022 rule) #####
 
-# Minimum 1 PCA axis; cap to the effective PCA rank to avoid svd() overflow
+# n_daxes (DA axes) : at most k-1 discriminant axes (algebraic bound of LDA)
+# n_paxes (PCA axes fed to LDA) : doit être >> k-1 pour que la LDA dispose
+#   de suffisamment de signal pour séparer les clusters. Avec n_paxes = k-1,
+#   la DAPC se réduit à la même projection que la PCA brute (plots identiques).
+#   Règle pratique : ~0.8 * n_ind / k, avec un plancher à n_daxes et un
+#   plafond au rang effectif de la PCA.
 if (k_infer > 1) {
-  n_paxes <- max(1L, min(k_infer - 1L, n_pca))
   n_daxes <- max(1L, k_infer - 1L)
+  n_paxes <- max(n_daxes,
+                 min(as.integer(round(0.8 * nInd(gdata) / k_infer)),
+                     n_pca))
+  cat(sprintf("  -> n_paxes auto-set to %d  (0.8 * n / k rule, capped at rank %d)\n",
+              n_paxes, n_pca))
 } else {
   stop(paste0("\n[dAPC Error]: k_infer = ", k_infer, 
               ". Discriminant Analysis requires at least 2 clusters.\n",
@@ -215,7 +224,7 @@ dapc_result <- dapc(
 )
 
 assign_success <- mean(dapc_result$assign == fc_final$grp) * 100
-cat(sprintf("  -> Reassignment rate : %.1f%%\n", assign_success))
+cat(sprintf("  -> Concordance K-means / DAPC : %.1f%%\n", assign_success))
 
 ##### Exports files #####
 
@@ -231,12 +240,17 @@ write.table(ld_scores, "outputs/output_ld.txt",
             sep = "\t", quote = FALSE, row.names = FALSE)
 
 # Assignments + membership probabilities
+# Rename posterior columns: "1","2",... -> "Prob_K1","Prob_K2",... to avoid
+# the X1/X2/X3 prefix that R adds automatically to numeric column names on re-import
+posterior_df       <- as.data.frame(dapc_result$posterior)
+colnames(posterior_df) <- paste0("Prob_K", seq_len(k_infer))
+
 assign_df <- data.frame(
   Individual     = rownames(dapc_result$ind.coord),
   Cluster_kmeans = as.character(fc_final$grp),
   Cluster_dapc   = as.character(dapc_result$assign),
-  Match          = dapc_result$assign == fc_final$grp,
-  as.data.frame(dapc_result$posterior)
+  Kmeans_DAPC_concordance = dapc_result$assign == fc_final$grp,
+  posterior_df
 )
 write.table(assign_df, "outputs/output_assign.txt",
             sep = "\t", quote = FALSE, row.names = FALSE)
@@ -272,9 +286,11 @@ writeLines(c(
 ), "outputs/output_stats.txt")
 
 ##### Shared colour palette (used across all figures) #####
-pal_anchors  <- c("#7B2D8B", "#2166AC", "#41B6C4", "#1A9641",
-                  "#D9EF8B", "#FD8D3C", "#D73027")
-cluster_cols <- colorRampPalette(pal_anchors)(k_infer)
+# Okabe-Ito palette — reference standard for colorblind-friendly scientific figures
+# (deuteranopia / protanopia / tritanopia safe). Interpolated with dégradé for K > 8.
+okabe_ito    <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+                  "#0072B2", "#D55E00", "#CC79A7", "#000000")
+cluster_cols <- colorRampPalette(okabe_ito)(k_infer)
 
 ##### BIC curve (auto mode only) #####
 if (is.null(params$k_fixed) && !is.null(fc_auto)) {
@@ -287,13 +303,13 @@ if (is.null(params$k_fixed) && !is.null(fc_auto)) {
     geom_line(colour = "grey50", linewidth = 0.7) +
     geom_point(size = 3, colour = "grey30") +
     geom_point(data = subset(bic_df, K == k_infer),
-               size = 4, colour = "#D73027", shape = 18) +
+               size = 4, colour = "#D55E00", shape = 18) +
     geom_vline(xintercept = k_infer, linetype = "dashed",
-               colour = "#D73027", linewidth = 0.5) +
+               colour = "#D55E00", linewidth = 0.5) +
     scale_x_continuous(breaks = bic_df$K) +
     labs(
       title    = "K-means BIC — K selection",
-      subtitle = paste0("Retained K = ", k_infer, "  (red diamond)"),
+      subtitle = paste0("Retained K = ", k_infer, "  (orange diamond)"),
       x = "Number of clusters K",
       y = "BIC"
     ) +
@@ -318,9 +334,9 @@ scree_df   <- data.frame(
 
 scree_plot <- ggplot(scree_df, aes(x = Axis)) +
   geom_col(aes(y = Var), fill = "#2166AC", alpha = 0.75, width = 0.7) +
-  geom_line(aes(y = CumVar), colour = "#D73027",
+  geom_line(aes(y = CumVar), colour = "#D55E00",
             linewidth = 0.8, linetype = "dashed") +
-  geom_point(aes(y = CumVar), colour = "#D73027", size = 1.8) +
+  geom_point(aes(y = CumVar), colour = "#D55E00", size = 1.8) +
   scale_x_continuous(breaks = seq_len(n_show)) +
   labs(
     title    = "PCA scree plot",
@@ -330,7 +346,7 @@ scree_plot <- ggplot(scree_df, aes(x = Axis)) +
   ) +
   # Secondary axis label for cumulative variance (cosmetic only)
   annotate("text", x = n_show * 0.92, y = max(scree_df$CumVar) * 0.97,
-           label = "— cumulative", colour = "#D73027", size = 3.2, hjust = 1) +
+           label = "— cumulative", colour = "#D55E00", size = 3.2, hjust = 1) +
   theme_bw(base_size = 13) +
   theme(plot.title = element_text(face = "bold"),
         axis.text.x = element_text(size = 7))
@@ -348,17 +364,19 @@ pca_df <- data.frame(
 )
 
 pca_plot <- ggplot(pca_df, aes(x = PC1, y = PC2, colour = Cluster, fill = Cluster)) +
-  stat_ellipse(geom = "polygon", level = 0.67, alpha = 0.12, linewidth = 0.4) +
+  # No ellipses here: PCA is unsupervised and does not define clusters.
+  # Cluster colours are a post-hoc projection of K-means groups onto PCA axes.
   geom_point(size = 2.2, alpha = 0.85, shape = 21,
              colour = "white", stroke = 0.3, aes(fill = Cluster)) +
   scale_colour_manual(values = cluster_cols) +
   scale_fill_manual(values = cluster_cols) +
   labs(
-    title    = paste0("PCA - K-means clusters (K = ", k_infer, ")"),
+    title    = paste0("PCA — K-means clusters projected (K = ", k_infer, ")"),
     subtitle = ifelse(is.null(params$k_fixed),
-                      paste0("K adegenet = ", ifelse(is.na(k_adegenet), "?", k_adegenet),
+                      paste0("Colours = K-means assignment  |  K adegenet = ",
+                             ifelse(is.na(k_adegenet), "?", k_adegenet),
                              "  |  retained = ", k_infer),
-                      paste0("K fixed by user = ", k_infer)),
+                      paste0("Colours = K-means assignment  |  K fixed = ", k_infer)),
     x = sprintf("PC1 (%.1f%%)", var_explained[1]),
     y = sprintf("PC2 (%.1f%%)", var_explained[2])
   ) +
@@ -415,42 +433,48 @@ ggsave("outputs/output_dapc_scatter.png", plot = dapc_scatter,
 cat("  -> DAPC scatter  :", "outputs/output_dapc_scatter.png", "\n")
 
 ##### Posterior membership barplot (STRUCTURE-style) #####
-post_df <- as.data.frame(dapc_result$posterior)
-post_df$Individual <- rownames(post_df)
-post_df$Cluster    <- factor(as.character(fc_final$grp),
-                             levels = sort(unique(as.character(fc_final$grp))))
+post_df <- posterior_df   # already renamed to Prob_K1, Prob_K2, ...
+post_df$Individual    <- rownames(dapc_result$ind.coord)
+post_df$Cluster_kmeans <- factor(as.character(fc_final$grp),
+                                 levels = sort(unique(as.character(fc_final$grp))))
+post_df$Cluster_dapc  <- factor(as.character(dapc_result$assign),
+                                levels = sort(unique(as.character(dapc_result$assign))))
 
-# Sort individuals by cluster then by their dominant posterior probability
-post_df <- post_df[order(post_df$Cluster,
-                         -apply(dapc_result$posterior, 1, max)), ]
+# Sort by DAPC-assigned cluster, then descending by the posterior probability
+# of that assigned cluster — so within each cluster block, the most confidently
+# assigned individuals appear first.
+post_df$dominant_prob <- sapply(seq_len(nrow(post_df)), function(i) {
+  k <- as.integer(as.character(post_df$Cluster_dapc[i]))
+  post_df[[paste0("Prob_K", k)]][i]
+})
+post_df <- post_df[order(post_df$Cluster_dapc, -post_df$dominant_prob), ]
 post_df$Individual <- factor(post_df$Individual, levels = post_df$Individual)
+
+prob_cols <- paste0("Prob_K", seq_len(k_infer))
 
 # Reshape to long format without reshape2/tidyr
 post_long <- do.call(rbind, lapply(seq_len(k_infer), function(k) {
-  col_name <- colnames(dapc_result$posterior)[k]
+  col_name <- prob_cols[k]
   data.frame(
-    Individual  = post_df$Individual,
-    Cluster_ref = post_df$Cluster,
-    Component   = col_name,
-    Probability = post_df[[col_name]]
+    Individual   = post_df$Individual,
+    Cluster_dapc = post_df$Cluster_dapc,
+    Component    = col_name,
+    Probability  = post_df[[col_name]]
   )
 }))
-post_long$Component <- factor(post_long$Component,
-                              levels = colnames(dapc_result$posterior))
+post_long$Component <- factor(post_long$Component, levels = prob_cols)
 
 barplot_post <- ggplot(post_long,
                        aes(x = Individual, y = Probability, fill = Component)) +
   geom_col(width = 1, colour = NA) +
   scale_fill_manual(values = cluster_cols, name = "Cluster") +
-  # Vertical separators between clusters
+  # Vertical separators between DAPC cluster blocks
   geom_vline(
-    xintercept = cumsum(as.numeric(table(post_df$Cluster))) + 0.5,
+    xintercept = cumsum(as.numeric(table(post_df$Cluster_dapc))) + 0.5,
     colour = "white", linewidth = 0.6
   ) +
   labs(
     title    = paste0("Posterior membership probabilities (K = ", k_infer, ")"),
-    subtitle = sprintf("Individuals sorted by cluster then by dominant probability  |  reassignment: %.1f%%",
-                       assign_success),
     x = NULL,
     y = "Membership probability"
   ) +
