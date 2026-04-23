@@ -1,0 +1,15 @@
+name: map_and_clust_sampling_locations
+owner: ecology
+description: Generates a static map of geographic sampling points with automatic or manual population clustering.
+homepage_url: https://github.com/GINAMO-EBVs/ginamo-workflows/map_and_clust_sampling_locations
+long_description: |
+  This tool takes a tabular file containing longitude and latitude coordinates and produces a map with colour-coded populations and ellipses
+  representing each group's spatial spread. Populations can be defined automatically using a distance buffer (DBSCAN) or manually via a column in the input file.
+  Tha map window can be fitted automatically around the data, restricted to a list of countries or defined by the user.
+remote_repository_url: https://github.com/galaxyecology/tools-ecology/tree/master/tools/map_and_clust_sampling_locations
+type: unrestricted
+categories:
+- Ecology
+auto_tool_repositories:
+  name_template: "{{ tool_id }}"
+  description_template: "{{ tool_name }}"

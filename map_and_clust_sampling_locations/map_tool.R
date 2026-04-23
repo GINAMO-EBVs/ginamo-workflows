@@ -6,6 +6,7 @@ library(RColorBrewer)
 library(rnaturalearth)
 library(rnaturalearthdata)
 library(ggforce)
+library(dbscan)
 
 
 ##### Load arguments #####
@@ -19,8 +20,6 @@ parse_args <- function(args) {
     cluster_mode      = "auto",     # "auto" | "manual"
     cluster_col       = NULL,
     buffer_km         = NULL,         # buffer radius in km (automatic mode)
-    map_padding       = 0.1,        # margin around points (extended fraction) — ignored if view_* is provided
-    show_hull         = TRUE,        # show polygons in the map
     view_xmin         = NULL,        # manual bbox: longitude min
     view_xmax         = NULL,        # manual bbox: longitude max
     view_ymin         = NULL,        # manual bbox: latitude min
@@ -36,14 +35,11 @@ parse_args <- function(args) {
   while (i <= length(args)) {
     switch(args[i],
            "--input"            = { params$input_file       <- args[i+1];              i <- i+2 },
-           "--output-map"       = { params$output_map       <- args[i+1];              i <- i+2 },
-           "--output-table"     = { params$output_table     <- args[i+1];              i <- i+2 },
            "--lon-col"          = { params$lon_col          <- args[i+1];              i <- i+2 },
            "--lat-col"          = { params$lat_col          <- args[i+1];              i <- i+2 },
            "--cluster-mode"     = { params$cluster_mode     <- args[i+1];              i <- i+2 },
-           "--cluster-col"      = { params$cluster_col      <- as.numeric(args[i+1]);              i <- i+2 },
+           "--cluster-col"      = { params$cluster_col      <- args[i+1];              i <- i+2 },
            "--buffer-km"        = { params$buffer_km        <- as.numeric(args[i+1]); i <- i+2 },
-           "--map-padding"      = { params$map_padding      <- as.numeric(args[i+1]); i <- i+2 },
            "--show-hull"        = { params$show_hull        <- as.logical(args[i+1]); i <- i+2 },
            "--view-xmin"        = { params$view_xmin        <- as.numeric(args[i+1]); i <- i+2 },
            "--view-xmax"        = { params$view_xmax        <- as.numeric(args[i+1]); i <- i+2 },
@@ -59,6 +55,8 @@ parse_args <- function(args) {
 
 params <- parse_args(args)
 
+params$map_padding       = 0.1       # margin around points (extended fraction) — ignored if view_* is provided
+
 ##### Check inputs #####
 
 if (!file.exists(params$input_file)) {
@@ -71,14 +69,21 @@ if (params$cluster_mode == "manual" && is.null(params$cluster_col)) {
 
 ##### Read data #####
 df <- tryCatch(
-  read.table(params$input_file,
-             header    = TRUE,
-             sep       = "\t",
-             quote     = "",
-             fill      = TRUE,
-             comment.char = "",
-             stringsAsFactors = FALSE
-  ),
+  {
+    data <- read.table(params$input_file,
+                       header    = TRUE,
+                       sep       = "\t",
+                       quote     = "",
+                       fill      = TRUE,
+                       comment.char = "",
+                       stringsAsFactors = FALSE,
+                       check.names = FALSE
+    )
+    
+    colnames(data) <- gsub('"', '', colnames(data))
+    
+    data
+  },
   error = function(e) stop("ERROR while reading the file : ", e$message)
 )
 
@@ -129,44 +134,13 @@ if (params$cluster_mode == "manual") {
   threshold_m <- params$buffer_km * 2 * 1000
   
   sf_pts   <- st_as_sf(df, coords = c(".lon", ".lat"), crs = 4326)
-  sf_pts_m <- st_transform(sf_pts, crs = 3857)   # metric projection
+  sf_pts_m <- st_transform(sf_pts, crs = 3857)
+  coords   <- st_coordinates(sf_pts_m)
   
-  n    <- nrow(df)
-  # Matrix of inter-point distances (metres)
-  dmat <- as.matrix(st_distance(sf_pts_m))
+  db_res <- dbscan::dbscan(coords, eps = threshold_m, minPts = 1)
   
-  # Union-Find: initialisation — each node is its own root
-  parent <- seq_len(n)
-  
-  find <- function(x) {
-    while (parent[x] != x) {
-      parent[x] <<- parent[parent[x]]
-      x <- parent[x]
-    }
-    x
-  }
-  
-  union <- function(a, b) {
-    ra <- find(a); rb <- find(b)
-    if (ra != rb) parent[ra] <<- rb
-  }
-  
-  # Merge pairs where the distance is less than or equal to the threshold
-  for (i in seq_len(n - 1)) {
-    for (j in (i + 1):n) {
-      if (dmat[i, j] <= threshold_m) union(i, j)
-    }
-  }
-  
-  # Standardise cluster IDs (1, 2, 3...)
-  roots      <- sapply(seq_len(n), find)
-  unique_roots <- unique(roots)
-  cluster_id <- match(roots, unique_roots)
-  
-  df$.cluster <- paste0("Pop_", cluster_id)
-  message("  >> ", length(unique_roots), " cluster(s) detected — ",
-          "two individuals are grouped together if the distance is <= 2 x ", params$buffer_km, " km (",
-          params$buffer_km * 2, " km).")
+  # Attribution des IDs (dbscan commence à 1, pas de 0/bruit ici car minPts=1)
+  df$.cluster <- paste0("Pop_", db_res$cluster)
 }
 
 ##### Map window #####
@@ -340,56 +314,55 @@ p <- ggplot() +
 p <- p +
   geom_point(
     data    = df,
-    mapping = aes(x = .lon, y = .lat, colour = .cluster, shape = .cluster),
+    mapping = aes(x = .lon, y = .lat, colour = .cluster), 
+    shape = 16,
     size    = 2.5,
     stroke  = 0.7
   ) +
   scale_colour_manual(values = palette, name = "Population") +
-  scale_fill_manual(values   = palette, name = "Population") +
-  scale_shape_manual(
-    values = rep(c(16, 17, 15, 18, 8, 3, 4, 10), length.out = n_clusters),
-    name   = "Population"
-  )
+  scale_fill_manual(values   = palette, name = "Population")
 
 # Ellipses by population (added after the map was finalised)
-if (params$show_hull) {
   # Calculation of ellipse parameters by cluster (centre + semi-axes + angle)
-  ellipse_params <- do.call(rbind, lapply(clusters, function(cl) {
-    pts <- df[df$.cluster == cl, c(".lon", ".lat")]
-    n   <- nrow(pts)
+ellipse_params <- do.call(rbind, lapply(clusters, function(cl) {
+  pts <- df[df$.cluster == cl, c(".lon", ".lat")]
+  n   <- nrow(pts)
+  if (n == 1) {
+    # 1 point : small fixed circle
+    data.frame(
+      .cluster = cl,
+      x0 = pts$.lon[1], y0 = pts$.lat[1],
+      a  = 0.3, b = 0.3, angle = 0
+    )
     
-    if (n == 1) {
-      # 1 point : small fixed circle
-      data.frame(
-        .cluster = cl,
-        x0 = pts$.lon[1], y0 = pts$.lat[1],
-        a  = 0.3, b = 0.3, angle = 0
-      )
-    } else if (n == 2) {
-      # 2 points : an ellipse elongated along the line segment
-      cx    <- mean(pts$.lon)
-      cy    <- mean(pts$.lat)
-      dx    <- diff(pts$.lon)
-      dy    <- diff(pts$.lat)
-      angle <- atan2(dy, dx)
-      a     <- sqrt(dx^2 + dy^2) / 2 + 0.3   # semi-major axis
-      b     <- 0.3                              # fixed minor semi-axis
-      data.frame(.cluster = cl, x0 = cx, y0 = cy, a = a, b = b, angle = angle)
-    } else {
-      # 3+ points: ellipse based on the standard deviation (± 2 SD = ~95% of the points)
-      cx    <- mean(pts$.lon)
-      cy    <- mean(pts$.lat)
-      # ACP to orient the ellipse along the main direction of the cloud
-      pca   <- prcomp(pts, center = TRUE, scale. = FALSE)
-      angle <- atan2(pca$rotation[2, 1], pca$rotation[1, 1])
-      # Standard deviations in the PCA's own coordinate system
-      scores <- pca$x
-      a     <- max(sd(scores[, 1]) * 2, 0.15)
-      b     <- max(sd(scores[, 2]) * 2, 0.15)
-      data.frame(.cluster = cl, x0 = cx, y0 = cy, a = a, b = b, angle = angle)
-    }
-  }))
+  } else if (n == 2) {
+    # 2 points : an ellipse elongated along the line segment
+    cx    <- mean(pts$.lon)
+    cy    <- mean(pts$.lat)
+    dx    <- diff(pts$.lon)
+    dy    <- diff(pts$.lat)
+    angle <- atan2(dy, dx)
+    
+    a     <- sqrt(dx^2 + dy^2) / 2 + 0.3   # semi-major axis
+    b     <- 0.3                              # fixed minor semi-axis
   
+    data.frame(.cluster = cl, x0 = cx, y0 = cy, a = a, b = b, angle = angle)
+
+  } else {
+    # 3+ points: ellipse based on the standard deviation (± 2 SD = ~95% of the points)
+    cx    <- mean(pts$.lon)
+    cy    <- mean(pts$.lat)
+    # ACP to orient the ellipse along the main direction of the cloud
+    pca   <- prcomp(pts, center = TRUE, scale. = FALSE)
+    angle <- atan2(pca$rotation[2, 1], pca$rotation[1, 1])
+    # Standard deviations in the PCA's own coordinate system
+    scores <- pca$x
+    a     <- max(sd(scores[, 1]) * 2, 0.15)
+    b     <- max(sd(scores[, 2]) * 2, 0.15)
+    data.frame(.cluster = cl, x0 = cx, y0 = cy, a = a, b = b, angle = angle)
+  }
+}))
+
   # Semi-transparent filling
   p <- p +
     ggforce::geom_ellipse(
@@ -406,8 +379,7 @@ if (params$show_hull) {
       fill     = NA,
       linewidth = 0.55,
       linetype  = "dashed"
-    )
-}
+  )
 
 # Card design
 p <- p +
@@ -425,11 +397,10 @@ p <- p +
   ) +
   theme_bw(base_size = 12) +
   theme(
+    legend.position  = "none",
     plot.title       = element_text(face = "bold", size = 14),
     plot.subtitle    = element_text(size = 10, colour = "grey40"),
     plot.caption     = element_text(size = 7,  colour = "grey55", hjust = 1),
-    legend.position  = "right",
-    legend.title     = element_text(face = "bold"),
     axis.text        = element_text(size = 9),
     panel.grid.major = element_line(colour = "grey85", linewidth = 0.3)
   ) +

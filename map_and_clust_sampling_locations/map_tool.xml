@@ -1,6 +1,6 @@
-<tool id="map_tool" name="Map Tool - Cartographie de points géographiques" version="1.0.0" profile="21.05">
+<tool id="map_and_clust_sampling_locations" name="Sampling Map" version="1.0.0" profile="25.0">
 
-  <description>Génère une carte statique de points géographiques avec clustering automatique ou manuel des populations</description>
+  <description>with population clustering</description>
 
   <requirements>
     <requirement type="package" version="4.5.3">r-base</requirement>
@@ -11,9 +11,15 @@
     <requirement type="package" version="1.0.0">r-rnaturalearthdata</requirement>
     <requirement type="package" version="0.5.0">r-ggforce</requirement>
     <requirement type="package" version="1.1_3">r-rcolorbrewer</requirement>
+    <requirement type="package" version="1.2.4">r-dbscan</requirement>
   </requirements>
 
+  <required_files>
+        <include path="map_tool.R" />
+    </required_files>
+
   <command detect_errors="exit_code"><![CDATA[
+    mkdir -p outputs &&
     Rscript '${__tool_directory__}/map_tool.R'
       --input              '${input_file}'
       --lon-col            '${columns.lon_col}'
@@ -24,7 +30,6 @@
       #else
         --cluster-col      '${cluster_section.cluster_col}'
       #end if
-      --map-padding        '${view_section.view_mode.map_padding}'
       #if $view_section.view_mode.view_mode_sel == "manual"
         --view-xmin          '${view_section.view_mode.view_xmin}'
         --view-xmax          '${view_section.view_mode.view_xmax}'
@@ -107,50 +112,100 @@
     </data>
     <data name="output_table" format="tabular"
           label="Summary table with new clustering"
-          from_work_dir="outputs/table_output.txt" />
+          from_work_dir="outputs/table_output.txt">
+      <filter>cluster_section['cluster_mode'] == 'auto'</filter>
+    </data>
   </outputs>
 
   <tests>
+    <test expect_num_outputs="2">
+      <param name="input_file" value="test_pop_map.txt"/>
+      <section name="columns">
+        <param name="lon_col" value="Long"/>
+        <param name="lat_col" value="Lat"/>
+      </section>
+      <conditional name="cluster_section">
+        <param name="cluster_mode" value="auto"/>
+        <param name="buffer_km" value="10"/>
+      </conditional>
+      <section name="view_section">
+        <conditional name="view_mode">
+          <param name="view_mode_sel" value="auto"/>
+        </conditional>
+      </section>
+      <section name="map_options">
+        <param name="map_title" value="Map test"/>
+      </section>
+      
+      <output name="output_map" ftype="png">
+        <assert_contents>
+          <has_image_width width="3600"/>
+          <has_image_height height="2700"/>
+        </assert_contents>
+      </output>
+      <output name="output_table" ftype="tabular">
+        <assert_contents>
+          <has_n_lines n="2842" delta="1"/>
+          <has_n_columns n="5" delta="1"/>
+        </assert_contents>
+      </output>
+    </test>
 
+    <test expect_num_outputs="1">
+      <param name="input_file" value="test_pop_map.txt"/>
+      <section name="columns">
+        <param name="lon_col" value="Long"/>
+        <param name="lat_col" value="Lat"/>
+      </section>
+      <conditional name="cluster_section">
+        <param name="cluster_mode" value="manual"/>
+        <param name="cluster_col" value="Pop"/>
+      </conditional>
+      <section name="view_section">
+        <conditional name="view_mode">
+          <param name="view_mode_sel" value="auto"/>
+        </conditional>
+      </section>
+      <section name="map_options">
+        <param name="map_title" value="Map test"/>
+      </section>
+      <output name="output_map" ftype="png">
+        <assert_contents>
+          <has_image_width width="3600"/>
+          <has_image_height height="2700"/>
+        </assert_contents>
+      </output>
+    </test>
   </tests>
 
   <help><![CDATA[
 
-WGS84 uniquement
+Usage
+=====
+
+This tool generates a static geographic map of sampling points with automatic or manual population clustering.
+It takes a tabular file containing longitude and latitude coordinates on WGS84 referential and produces a map with colour-coded populations and ellipses representing each grou'ps spatial spread.
+
+Two modes are available : 
+    - **Automatic clustering:** Individus are grouped using a circular buffer approach. Two individuals are assigned to the same population if the distance between them is less than or equal to twice the specified buffer radius (in km). This is implemented via DBSCAN. This mode also exports a summary table with the inferred population assignments appended to the original data.
+    - **Manual clustering:** The user provides a column in the input file that already contains population labels. No distance computation is performed.
+
+The map windows can be defined in three ways : automatically fitted around the data points with a configurable padding margin, restricted to a list of countries (by English name or ISO-2/ISO-3 code), or set manually using explicit longitude/latitude bounds.
+For countries with overseas territories (e.g. France, Spain), only the continental polygon is used to compute the bounding box; points falling outside are still included by expanding the window accordingly.
+
+The tool generates a PNG map of the sampling points with poopulation ellipses and a tabular file with population assignments on automatic mode only.
 
   ]]></help>
 
   <citations>
-    <citation type="bibtex">
-      @Manual{R2024,
-        title  = {R: A Language and Environment for Statistical Computing},
-        author = {{R Core Team}},
-        organization = {R Foundation for Statistical Computing},
-        address = {Vienna, Austria},
-        year   = {2024},
-        url    = {https://www.R-project.org/}
-      }
-    </citation>
-    <citation type="bibtex">
-      @Book{ggplot2,
-        author    = {Hadley Wickham},
-        title     = {ggplot2: Elegant Graphics for Data Analysis},
-        publisher = {Springer-Verlag New York},
-        year      = {2016},
-        isbn      = {978-3-319-24277-4}
-      }
-    </citation>
-    <citation type="bibtex">
-      @Article{sf,
-        author  = {Edzer Pebesma},
-        title   = {{Simple Features for R: Standardized Support for Spatial Vector Data}},
-        journal = {{The R Journal}},
-        year    = {2018},
-        volume  = {10},
-        number  = {1},
-        pages   = {439-446}
-      }
-    </citation>
+    <citation type="doi">10.32614/CRAN.package.dplyr</citation>
+    <citation type="doi">10.32614/CRAN.package.ggplot2</citation>
+    <citation type="doi">10.32614/CRAN.package.sf</citation>
+    <citation type="doi">10.32614/CRAN.package.rnaturalearth</citation>
+    <citation type="doi">10.32614/CRAN.package.rnaturalearthdata</citation>
+    <citation type="doi">10.32614/CRAN.package.ggforce</citation>
+    <citation type="doi">10.32614/CRAN.package.RColorBrewer</citation>
+    <citation type="doi">10.32614/CRAN.package.dbscan</citation>
   </citations>
 
 </tool>
