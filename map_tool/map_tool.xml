@@ -1,0 +1,156 @@
+<tool id="map_tool" name="Map Tool - Cartographie de points géographiques" version="1.0.0" profile="21.05">
+
+  <description>Génère une carte statique de points géographiques avec clustering automatique ou manuel des populations</description>
+
+  <requirements>
+    <requirement type="package" version="4.5.3">r-base</requirement>
+    <requirement type="package" version="1.2.1">r-dplyr</requirement>
+    <requirement type="package" version="1.1_0">r-sf</requirement>
+    <requirement type="package" version="4.0.3">r-ggplot2</requirement>
+    <requirement type="package" version="1.2.0">r-rnaturalearth</requirement>
+    <requirement type="package" version="1.0.0">r-rnaturalearthdata</requirement>
+    <requirement type="package" version="0.5.0">r-ggforce</requirement>
+    <requirement type="package" version="1.1_3">r-rcolorbrewer</requirement>
+  </requirements>
+
+  <command detect_errors="exit_code"><![CDATA[
+    Rscript '${__tool_directory__}/map_tool.R'
+      --input              '${input_file}'
+      --lon-col            '${columns.lon_col}'
+      --lat-col            '${columns.lat_col}'
+      --cluster-mode       '${cluster_section.cluster_mode}'
+      #if $cluster_section.cluster_mode == "auto"
+        --buffer-km        '${cluster_section.buffer_km}'
+      #else
+        --cluster-col      '${cluster_section.cluster_col}'
+      #end if
+      --map-padding        '${view_section.view_mode.map_padding}'
+      #if $view_section.view_mode.view_mode_sel == "manual"
+        --view-xmin          '${view_section.view_mode.view_xmin}'
+        --view-xmax          '${view_section.view_mode.view_xmax}'
+        --view-ymin          '${view_section.view_mode.view_ymin}'
+        --view-ymax          '${view_section.view_mode.view_ymax}'
+      #else if $view_section.view_mode.view_mode_sel == "countries"
+        --view-countries     '${view_section.view_mode.view_countries}'
+      #end if
+      --map-title          '${map_options.map_title}'
+  ]]></command>
+
+  <inputs>
+    <param name="input_file" type="data" format="tabular,txt"
+           label="Upload your data"
+           help="Data in tabular format containing at least one longitude one latitude column." />
+
+    <section name="columns" title="Columns names" expanded="true">
+      <param name="lon_col" type="text" value="Longitude"
+             label="The exact name of the column containing the longitudes" />
+      <param name="lat_col" type="text" value="Latitude"
+             label="The exact name of the column containing the latitudes" />
+    </section>
+
+    <conditional name="cluster_section">
+      <param name="cluster_mode" type="select"
+             label="Method of defining populations"
+             help="Choose whether the populations are defined automatically using a geographical buffer or manually via a column in the file.">
+        <option value="auto" selected="true">Automatic: circular buffer (radius in km)</option>
+        <option value="manual">Manual: population column provided in the file</option>
+      </param>
+
+      <when value="auto">
+        <param name="buffer_km" type="float" value="50" min="0.1"
+               label="Buffer radius in kilometres"
+               help="Two individuals whose buffers touch are considered to belong to the same population. Therefore, two individuals belong to the same population if they are separated by twice the buffer radius." />
+      </when>
+
+      <when value="manual">
+        <param name="cluster_col" type="text" value="Population"
+               label="The exact name of the column containing the populations/clusters" />
+      </when>
+    </conditional>
+
+    <section name="view_section" title="Map window" expanded="false">
+      <conditional name="view_mode">
+        <param name="view_mode_sel" type="select"
+               label="Window definition mode"
+               help="By default, the window is calculated automatically around your points.">
+          <option value="auto" selected="true">Automatic (zoom in on points + margin)</option>
+          <option value="countries">By country list</option>
+          <option value="manual">Manual coordinates</option>
+        </param>
+        <when value="auto">
+      </when>
+        <when value="countries">
+          <param name="view_countries" type="text"
+                 label="Countries (separated by commas)"
+                 help="Names in English or ISO-2/ISO-3 codes. Examples: France, Spain, Portugal or FR, ES, PT" />
+      </when>
+        <when value="manual">
+          <param name="view_xmin" type="float" value="-10" min="-180" max="180" label="Longitude min (west)" />
+          <param name="view_xmax" type="float" value="15"  min="-180" max="180" label="Longitude max (east)" />
+          <param name="view_ymin" type="float" value="35"  min="-90"  max="90"  label="Latitude min (south)" />
+          <param name="view_ymax" type="float" value="55"  min="-90"  max="90"  label="Latitude max (north)" />
+      </when>
+      </conditional>
+    </section>
+
+    <section name="map_options" title="Map options" expanded="false">
+      <param name="map_title" type="text" value="Samples map"
+             label="Map title"/>
+    </section>
+
+  </inputs>
+
+  <outputs>
+    <data name="output_map" format="png"
+          label="Samples map"
+          from_work_dir="outputs/samples_map.png">
+    </data>
+    <data name="output_table" format="tabular"
+          label="Summary table with new clustering"
+          from_work_dir="outputs/table_output.txt" />
+  </outputs>
+
+  <tests>
+
+  </tests>
+
+  <help><![CDATA[
+
+WGS84 uniquement
+
+  ]]></help>
+
+  <citations>
+    <citation type="bibtex">
+      @Manual{R2024,
+        title  = {R: A Language and Environment for Statistical Computing},
+        author = {{R Core Team}},
+        organization = {R Foundation for Statistical Computing},
+        address = {Vienna, Austria},
+        year   = {2024},
+        url    = {https://www.R-project.org/}
+      }
+    </citation>
+    <citation type="bibtex">
+      @Book{ggplot2,
+        author    = {Hadley Wickham},
+        title     = {ggplot2: Elegant Graphics for Data Analysis},
+        publisher = {Springer-Verlag New York},
+        year      = {2016},
+        isbn      = {978-3-319-24277-4}
+      }
+    </citation>
+    <citation type="bibtex">
+      @Article{sf,
+        author  = {Edzer Pebesma},
+        title   = {{Simple Features for R: Standardized Support for Spatial Vector Data}},
+        journal = {{The R Journal}},
+        year    = {2018},
+        volume  = {10},
+        number  = {1},
+        pages   = {439-446}
+      }
+    </citation>
+  </citations>
+
+</tool>

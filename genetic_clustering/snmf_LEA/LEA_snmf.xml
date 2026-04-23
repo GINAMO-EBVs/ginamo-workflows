@@ -219,7 +219,7 @@ Optionally, it can compare the consistency of the chosen K using pairwise Fst es
 In this step, only "pure" individuals are used to ensure that admixed individuals don't blur the differentiation signals among clusters. 
 The user defines a threshold ancestry proportion above which individuals are considered purebred. We recommend using a threshold value of 0.875, which is optimal for distinguishing purebred individuals from first-generation backcrosses (Guichoux *et al*. 2013).
 Then to minimize runtime, the minimum pairwise Fst value is tested using the boot.ppfst function of hierfstat package (Goudet *et al*. 2022) which performs bootstrapping over loci of pairwise Fst. 
-If not significant (p≥0.05), K is decreased by 1, the analysis is re-run for comparison. If the automatically selected K value is not suitable, the user can choose to set the K value manually.
+If not significant (p≥0.05), K is decreased by 1, the analysis is re-run until the minimum Fst value is no longer significant. If the automatically selected K value is not suitable, the user can choose to set the K value manually.
 
 The tool generates two figures : the cross-entropy plot and barplot of individuals' assignment probabilities (as in the commonly used STRUCTURE program), as well as a tabular file summarizing the ancestry and status (Pure or Admixed) of each individual.
 

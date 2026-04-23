@@ -341,7 +341,7 @@
 Usage
 =====
 
-This tool performs a Discriminant Analysis of Principal Components (DAPC) to identify and describe genetic clusters using the R package adegenet (Jombart *et al*. 2010). It is designed to work with both SNPs (VCF format) and SSRs (tabular format).
+This tool performs a Discriminant Analysis of Principal Components (DAPC) to identify genetic clusters using the R package adegenet (Jombart *et al*. 2010). It is designed to work with both SNPs (VCF format) and SSRs (tabular format).
 
 The analysis follows a process in three steps:
 
