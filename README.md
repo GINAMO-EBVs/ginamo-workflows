@@ -19,8 +19,9 @@ You can find all the workflows in :
 
 Workflows names, description and links : 
 -	**GINAMO : VCF filtering** : This workflow quality filters a VCF file. Filters will be applied in the following order : Genotype quality, Read depth, biallelic SNPs only, loci with missing data, minor allele count, individuals with missing data and heterozygosity. For each filter, you can select the parameter value. (*add links*)
--	**GINAMO : genetic EBVs calculation** : This workflow splits VCF file into individual population file and computes genetic essentiel biodiversity variables (EBVs), including diversity, inbreeding, differentiation and effective population size. (*add links*)
+-	**GINAMO : From SNPs to genetic EBVs** : This workflow splits VCF file into individual population file and computes genetic essentiel biodiversity variables (EBVs), including diversity, inbreeding, differentiation and effective population size. (*add links*)
 -	**GINAMO : SSR filtering** : This workflow quality filters microsatellite data on tabular format. Filters will be applied in the following order : individuals with missing data, loci with missing data and null alleles.  (*add links*)
+-	**GINAMO: From SSRs to genetic EBVs** : This workflow computes genetic essential biodiversity variables (EBVs), including diversity, inbreeding, differentiation and effective population size using microsatellite data.
 -	**GINAMO : Population delineation and genetic clustering** : This workflow enables the delineation of populations using genetic data. It performs a dAPC and a estimates admixture coefficients using sparse Non-Negative Matrix Factorization algorithms. If you already have a preliminary population delineation, this allows you to test you populations using pairwise Fst. (*add links*)
 
 
