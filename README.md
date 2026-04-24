@@ -14,8 +14,9 @@ Here’s how to choose which workflow(s) to use based on your data:
 [add decision tree]
 
 You can find all the workflows in :
-•	Galaxy Ecology > Workflow > Workflow Public > search GINAMO
-•	Galaxy Europe > Workflow > Workflow Public > search GINAMO
+- Galaxy Ecology > Workflow > Workflow Public > search GINAMO
+- Galaxy Europe > Workflow > Workflow Public > search GINAMO
+
 Workflows names, description and links : 
 -	**GINAMO : VCF filtering** : This workflow quality filters a VCF file. Filters will be applied in the following order : Genotype quality, Read depth, biallelic SNPs only, loci with missing data, minor allele count, individuals with missing data and heterozygosity. For each filter, you can select the parameter value. (*add links*)
 -	**GINAMO : genetic EBVs calculation** : This workflow splits VCF file into individual population file and computes genetic essentiel biodiversity variables (EBVs), including diversity, inbreeding, differentiation and effective population size. (*add links*)
