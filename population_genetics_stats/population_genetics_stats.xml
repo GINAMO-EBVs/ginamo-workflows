@@ -1,4 +1,4 @@
-<tool id="population_genetics_stats" name="Population Genetics Statistics:" version="0.1.0" profile="25.0">
+<tool id="population_genetics_stats" name="Population Genetics Statistics:" version="0.2.0" profile="25.0">
     <description>
         He, Hobs, Fis, allelic richness and pairwise values (Fst, DJost, Gst Nei)
     </description>
@@ -32,12 +32,14 @@
             #if $data_conditional.marker_type == "SNP":
                 '$data_conditional.indpop'
             #end if
-            '$stats_selection.calc_heterozygosity'
-            '$stats_selection.calc_fis'
-            '$stats_selection.calc_ar'
-            '$stats_selection.calc_fst'
-            '$stats_selection.calc_gst'
-            '$stats_selection.calc_djost'
+            #for $s in $stats:
+                '${s}'
+            #end for
+            #if $fst_options.calc_boot_fst and 'fst' in $stats:
+                'boot_fst'
+            #end if
+            '${fst_options.nboot}'
+
         ]]></command>
 
     <inputs>
@@ -47,33 +49,37 @@
                 <option value="SSR">SSR</option>
             </param>
         
-        <when value="SNP">
-            <param name="input_data" type="data" format="vcf" label="Upload your VCF file"
-                help="File containing SNP data in VCF format. You can upload a simple file, multiple file or a dataset collection"/>
-            <param name="indpop" type="data" format="tabular,txt" label="Upload your population file"
-                help="File containing individuals in the first column and their population in the second, separated by a tabulation character."/>
-        </when>
+            <when value="SNP">
+                <param name="input_data" type="data" format="vcf" label="Upload your VCF file"
+                    help="File containing SNP data in VCF format. You can upload a simple file, multiple file or a dataset collection"/>
+                <param name="indpop" type="data" format="tabular,txt" label="Upload your population file"
+                    help="File containing individuals in the first column and their population in the second, separated by a tabulation character."/>
+            </when>
         
-        <when value="SSR">
-            <param name="input_data" type="data" format="tabular,txt" label="Upload your SSR data file"
-                help="File containing SSR/microsatellite data in tabular format."/>
-        </when>
-    </conditional>
+            <when value="SSR">
+                <param name="input_data" type="data" format="tabular,txt" label="Upload your SSR data file"
+                    help="File containing SSR/microsatellite data in tabular format."/>
+            </when>
+        </conditional>
         
-    <section name="stats_selection" title="Statistics to compute" expanded="true">
-            <param name="calc_heterozygosity" type="boolean" truevalue="true" falsevalue="false"
-                checked="true" label="Heterozygosity (Hobs and Hexp / He)"
-                help="Observed and expected heterozygosity."/>
-            <param name="calc_fis" type="boolean" truevalue="true" falsevalue="false"
-                checked="true" label="Inbreeding coefficient (Fis) (Weir &amp; Cockerham 1984)"/>
-            <param name="calc_ar" type="boolean" truevalue="true" falsevalue="false"
-                checked="true" label="Allelic richness (Ar)"/>
-            <param name="calc_fst" type="boolean" truevalue="true" falsevalue="false"
-                checked="false" label="Pairwise Fst (Weir &amp; Cockerham 1984)"/>
-            <param name="calc_gst" type="boolean" truevalue="true" falsevalue="false"
-                checked="false" label="Pairwise Gst (Nei 1973)"/>
-            <param name="calc_djost" type="boolean" truevalue="true" falsevalue="false"
-                checked="false" label="Pairwise Jost's D (Jost 2008)"/>
+        <param name="stats" type="select" multiple="true" display="checkboxes"
+            label="Statistics to compute"
+            help="Select one or more statistics to compute.">
+            <option value="heterozygosity" selected="true">Heterozygosity (Hobs and Hexp / He)</option>
+            <option value="fis" selected="true">Inbreeding coefficient (Fis) (Weir &amp; Cockerham 1984)</option>
+            <option value="ar" selected="true">Allelic richness (Ar)</option>
+            <option value="fst">Pairwise Fst (Weir &amp; Cockerham 1984)</option>
+            <option value="gst">Pairwise Gst (Nei 1973)</option>
+            <option value="djost">Pairwise Jost's D (Jost 2008)</option>
+        </param>
+
+        <section name="fst_options" title="Fst options" expanded="false">
+            <param name="calc_boot_fst" type="boolean" truevalue="true" falsevalue="false"
+                checked="false" label="Test Fst significance with bootstrap"
+                help="Only available if Pairwise Fst is selected."/>
+            <param name="nboot" type="integer" value="1000" min="100"
+                label="Number of bootstrap replicates"
+                help="Higher values give more precise p-values but increase computation time."/>
         </section>
     </inputs>
 
@@ -83,46 +89,49 @@
 
         <data name="fst_matrix" from_work_dir="matrices_output/fst_matrix.txt"
             format="tabular" label="Pairwise Fst matrix (${data_conditional.input_data.element_identifier})">
-            <filter>stats_selection['calc_fst']</filter>
+            <filter>'fst' in stats</filter>
         </data>
         <data name="gst_matrix" from_work_dir="matrices_output/gst_pr_nei_matrix.txt"
             format="tabular" label="Pairwise Gst (Nei) matrix (${data_conditional.input_data.element_identifier})">
-            <filter>stats_selection['calc_gst']</filter>
+            <filter>'gst' in stats</filter>
         </data>
         <data name="djost_matrix" from_work_dir="matrices_output/jost_D_matrix.txt"
             format="tabular" label="Pairwise Jost's D matrix (${data_conditional.input_data.element_identifier})">
-            <filter>stats_selection['calc_djost']</filter>
+            <filter>'djost' in stats</filter>
         </data>
         <data name="fst_heatmap" from_work_dir="matrices_output/fst_heatmap.png"
             format="png" label="Pairwise Fst heatmap (${data_conditional.input_data.element_identifier})">
-            <filter>stats_selection['calc_fst']</filter>
+            <filter>'fst' in stats</filter>
         </data>
         <data name="gst_heatmap" from_work_dir="matrices_output/gst_pr_nei_heatmap.png"
             format="png" label="Pairwise Gst (Nei) heatmap (${data_conditional.input_data.element_identifier})">
-            <filter>stats_selection['calc_gst']</filter>
+            <filter>'gst' in stats</filter>
         </data>
         <data name="djost_heatmap" from_work_dir="matrices_output/jost_D_heatmap.png"
             format="png" label="Pairwise Jost's D heatmap (${data_conditional.input_data.element_identifier})">
-            <filter>stats_selection['calc_djost']</filter>
+            <filter>'djost' in stats</filter>
         </data>
+        <data name="boot_fst_sig_matrix" from_work_dir="matrices_output/boot_fst_sig_matrix.txt"
+            format="tabular" label="Bootstrap Fst - significance matrix (${data_conditional.input_data.element_identifier})">
+            <filter>'fst' in stats and fst_options['calc_boot_fst']</filter>
+        </data>
+        <data name="boot_fst_CI_matrix" from_work_dir="matrices_output/boot_fst_CI_matrix.txt"
+            format="tabular" label="Bootstrap Fst - CI matrix (${data_conditional.input_data.element_identifier})">
+            <filter>'fst' in stats and fst_options['calc_boot_fst']</filter>
+        </data>
+
     </outputs>
 
     <tests>
     <!-- Test 1: SNP - basics stats (He, Ho, Fis and Ar) -->
-    <test expect_num_outputs="1">
+        <test expect_num_outputs="1">
         <conditional name="data_conditional">       
             <param name="marker_type" value="SNP"/>
             <param name="input_data" value="test_vcf.vcf" ftype="vcf"/>
             <param name="indpop" value="test_pop.txt" ftype="txt"/>
         </conditional>
-        <section name="stats_selection">
-            <param name="calc_heterozygosity" value="true"/>
-            <param name="calc_fis" value="true"/>
-            <param name="calc_ar" value="true"/>
-            <param name="calc_fst" value="false"/>
-            <param name="calc_gst" value="false"/>
-            <param name="calc_djost" value="false"/>
-        </section>
+        <param name="stats" value="heterozygosity,fis,ar"/>
+ 
         <output name="summary_div_stats" ftype="tabular">
             <assert_contents>
                 <has_n_lines n="12"/>
@@ -140,14 +149,8 @@
             <param name="input_data" value="test_vcf.vcf" ftype="vcf"/>
             <param name="indpop" value="test_pop.txt" ftype="txt"/>
         </conditional>
-        <section name="stats_selection">
-            <param name="calc_heterozygosity" value="true"/>
-            <param name="calc_fis" value="true"/>
-            <param name="calc_ar" value="true"/>
-            <param name="calc_fst" value="true"/>
-            <param name="calc_gst" value="true"/>
-            <param name="calc_djost" value="true"/>
-        </section>
+        <param name="stats" value="heterozygosity,fis,ar,fst,gst,djost"/>
+ 
         <output name="summary_div_stats" ftype="tabular">
             <assert_contents>
                 <has_n_lines n="12"/>
@@ -190,21 +193,15 @@
             </assert_contents>
         </output>
     </test>
-
-    <!-- Test 3: SSR - stats de base (Hobs, Fis, Ar) sans differenciation -->
+ 
+    <!-- Test 3: SSR - basics stats (He, Ho, Fis and Ar) -->
     <test expect_num_outputs="1">
         <conditional name="data_conditional">
             <param name="marker_type" value="SSR"/>
             <param name="input_data" value="test_SSR.txt" ftype="txt"/>
         </conditional>
-        <section name="stats_selection">
-            <param name="calc_heterozygosity" value="true"/>
-            <param name="calc_fis" value="true"/>
-            <param name="calc_ar" value="true"/>
-            <param name="calc_fst" value="false"/>
-            <param name="calc_gst" value="false"/>
-            <param name="calc_djost" value="false"/>
-        </section>
+        <param name="stats" value="heterozygosity,fis,ar"/>
+ 
         <output name="summary_div_stats" ftype="tabular">
             <assert_contents>
                 <has_n_lines n="9"/>
@@ -214,21 +211,15 @@
             </assert_contents>
         </output>
     </test>
-
-    <!-- Test 4: SSR - toutes les stats incluant matrices de differenciation -->
+ 
+    <!-- Test 4: SSR - all stats -->
     <test expect_num_outputs="7">
         <conditional name="data_conditional">
             <param name="marker_type" value="SSR"/>
             <param name="input_data" value="test_SSR.txt" ftype="txt"/>
         </conditional>
-        <section name="stats_selection">
-            <param name="calc_heterozygosity" value="true"/>
-            <param name="calc_fis" value="true"/>
-            <param name="calc_ar" value="true"/>
-            <param name="calc_fst" value="true"/>
-            <param name="calc_gst" value="true"/>
-            <param name="calc_djost" value="true"/>
-        </section>
+        <param name="stats" value="heterozygosity,fis,ar,fst,gst,djost"/>
+ 
         <output name="summary_div_stats" ftype="tabular">
             <assert_contents>
                 <has_n_lines n="9"/>
@@ -271,6 +262,60 @@
             </assert_contents>
         </output>
     </test>
+
+    <!-- Test 2: SNP - Fst + bootstrap -->
+    <test expect_num_outputs="5">
+        <conditional name="data_conditional">
+            <param name="marker_type" value="SNP"/>
+            <param name="input_data" value="test_vcf.vcf" ftype="vcf"/>
+            <param name="indpop" value="test_pop.txt" ftype="txt"/>
+        </conditional>
+        <param name="stats" value="fst"/>
+        <section name="fst_options">
+            <param name="calc_boot_fst" value="true"/>
+            <param name="nboot" value="100"/>
+        </section>
+ 
+        <output name="summary_div_stats" ftype="tabular">
+            <assert_contents>
+                <has_n_lines n="12"/>
+                <has_n_columns n="5"/>
+                <has_line_matching expression="Dataset\tPop\tMarker_type\tn_ind\taverage_pairwise_Fst"/>
+                <has_line_matching expression="test_vcf\tGA-2_2021\tSNP\t148\t0.01352"/>
+            </assert_contents>
+        </output>
+
+        <output name="fst_matrix" ftype="tabular">
+            <assert_contents>
+                <has_n_lines n="10" delta="1"/>
+                <has_n_columns n="10"/>
+            </assert_contents>
+        </output>
+        
+        <output name="fst_heatmap" ftype="png">
+            <assert_contents>
+                <has_size min="1000"/>
+            </assert_contents>
+        </output>
+        
+        <output name="boot_fst_sig_matrix" ftype="tabular">
+            <assert_contents>
+                <has_n_lines n="10" delta="1"/>
+                <has_n_columns n="10"/>
+                <not_has_text text="TRUE"/>
+                <not_has_text text="FALSE"/>
+            </assert_contents>
+        </output>
+
+        <output name="boot_fst_CI_matrix" ftype="tabular">
+            <assert_contents>
+                <has_n_lines n="10" delta="1"/>
+                <has_n_columns n="10"/>
+            </assert_contents>
+        </output>
+
+    </test>
+
 </tests>
 
 <help><![CDATA[
@@ -282,6 +327,8 @@ As input, the user provides genetic data depending on the marker type selected. 
 This tool computes standard genetic diversity statistics and differentiation indices using several R packages (adegenet, hierfstat and mmod). It calculates observed and expected heterozygosity (Hobs, Hexp), allelic richness (Ar), and an inbreeding coefficient (Fis) (Weir & Cockerham 1984). It also performs pairwise population comparisons to provide Fst (Weir & Cockerham 1984), Gst (Nei 1973) and Jost's D statistics (Jost 2008).
 
 The tool generates a summary table with results per population, the average across populations (mean) and the results for all individuals pooled (All_populations_combined). Additionally, if the user chooses to compute pairwise values, the tool generates the full pairwise differentiation matrix for each pairwise statistic and a heatmap in png format.
+
+Optionally, pairwise Fst significance can be assessed by bootstrap resampling (Weir & Cockerham 1984). When this option is enabled, two additional output matrices are produced (see *Bootstrap Fst outputs* below).
 
 Examples files
 ==============
@@ -303,6 +350,9 @@ Examples files
     ind1    pop1    120/124 200/202 150/150
     ind2    pop1    120/120 202/204 150/152
     ind3    pop2    124/126 200/200 152/152
+ 
+ 
+See also examples of VCF formats in :  https://samtools.github.io/hts-specs/VCFv4.5.pdf
 
 
 **Summary output table:**
@@ -319,6 +369,7 @@ Examples files
 | MyStudy  | mean | SNP         | 55    | 0.315 | 0.337 | 1.81 | 0.066 | 0.046    | 0.039        | 0.013       |
 +----------+------+-------------+-------+-------+-------+------+-------+----------+--------------+-------------+
 
+ 
 **Pairwise matrix output (example for Fst):**
 
 ::
@@ -328,8 +379,42 @@ Examples files
     pop2    0.045   0.000   0.038
     pop3    0.062   0.038   0.000
 
+Bootstrap Fst outputs
+=====================
+ 
+When *Test Fst significance with bootstrap* is enabled (requires Pairwise Fst to be selected), two additional files are produced.
+ 
+**Bootstrap Fst - significance matrix** 
+ 
+Each cell in the upper triangle indicates whether the 95% confidence interval of the corresponding pairwise Fst excludes zero:
+ 
+- ``Significant`` -- the CI does not overlap 0 (the pair is significantly differentiated)
+- ``NS`` -- the CI overlaps 0 (non-significant)
+ 
+::
+ 
+              pop1          pop2          pop3
+    pop1      NA            Significant   NS
+    pop2      NA            NA            Significant
+    pop3      NA            NA            NA
+ 
+ 
+**Bootstrap Fst - CI matrix**
+ 
+A single asymmetric matrix combining both confidence interval bounds for each population pair:
+ 
+- **Upper triangle** -- lower bound of the 95% CI (``ll``)
+- **Lower triangle** -- upper bound of the 95% CI (``ul``)
+- **Diagonal** -- ``NA``
+ 
+::
+ 
+              pop1     pop2     pop3
+    pop1      NA       0.012    0.031     <- lower CI (ll)
+    pop2      0.089    NA       0.018
+    pop3      0.142    0.097    NA        <- upper CI (ul) in lower triangle
 
-See also examples of VCF formats in :  https://samtools.github.io/hts-specs/VCFv4.5.pdf
+Reading example: for the pair (pop1, pop2), the lower CI bound is found at row pop1 / column pop2, and the upper CI bound at row pop2 / column pop1.
 
     ]]></help>
     
