@@ -1,5 +1,5 @@
 <macros>
-    <token name="@TOOL_VERSION@">0.1.0</token>
+    <token name="@TOOL_VERSION@">0.2.0</token>
     <token name="@PROFILE@">25.0</token>
 
     <xml name="requirements_bcftools">
@@ -12,12 +12,6 @@
     <xml name="requirements_bcftools_vcftools">
         <requirements>
             <requirement type="package" version="1.22">bcftools</requirement>
-            <requirement type="package" version="0.1.17">vcftools</requirement>
-        </requirements>
-    </xml>
-
-    <xml name="requirements_vcftools">
-        <requirements>
             <requirement type="package" version="0.1.17">vcftools</requirement>
         </requirements>
     </xml>
