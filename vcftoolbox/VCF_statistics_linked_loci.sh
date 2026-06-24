@@ -24,7 +24,8 @@ done
 
 ##### Validate inputs #####
 # Ensure bcftools and vcftools are available in PATH
-command -v bcftools >/dev/null 2>&1 || die "vcftools is not installed or not in PATH."
+command -v bcftools >/dev/null 2>&1 || die "bcftools is not installed or not in PATH."
+command -v vcftools >/dev/null 2>&1 || die "vcftools is not installed or not in PATH."
 
 # Check that input files exist on disk
 [[ -f "$vcf_input" ]] || die "Input VCF was not found: $vcf_input"
@@ -37,6 +38,7 @@ fi
 ##### Output directory #####
 readonly output_dir="r2_results_directory"
 temp="temporary"
+temp_dir="vcf_tmp_preprocessing"
 
 ##### Build output filename #####
 name_without_ext="$(basename -- "$vcf_name")"
@@ -66,7 +68,7 @@ add_missing_contigs(){
     local vcf_in="$1"
     local -n _out_var="$2"          # nameref: writes directly into the caller's variable
  
-    local vcf_out="${vcf_in%.vcf}_reheadered.vcf"
+    local vcf_out="${temp_dir}/input_reheadered.vcf"
  
     # If contig lines already present, return the original path unchanged
     if bcftools view -h "$vcf_in" 2>/dev/null | grep -q "^##contig="; then
@@ -86,7 +88,7 @@ add_missing_contigs(){
         awk '{print "##contig=<ID=" $1 ">"}' >> "$tmp_header"
     bcftools view -h "$vcf_in" 2>/dev/null | grep "^#CHROM"     >> "$tmp_header"
  
-    bcftools reheader -h "$tmp_header" -o "$vcf_out" "$vcf_in" 2>/dev/null
+    bcftools reheader -h "$tmp_header" "$vcf_in" > "$vcf_out"
     rm -f "$tmp_header"
  
     if [[ ! -s "$vcf_out" ]]; then
