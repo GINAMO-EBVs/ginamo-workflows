@@ -482,4 +482,3 @@ genepop2ssr() {
         echo "Unrecognised combination of parameters"
         exit 1
     fi
-
