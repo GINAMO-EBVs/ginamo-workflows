@@ -252,7 +252,7 @@ plot_cross_entropy <- function(project, k_min, k_max, best_k) {
              label = paste("K selected =", best_k),
              hjust = 0, color = "#D55E00", size = 3.5) +
     scale_x_continuous(breaks = k_min:k_max) +
-    labs(title    = "Cross-entropy par K",
+    labs(title    = "Cross-entropy",
          subtitle = "Points = mean  |  Bars = Minimum and maximum across all repetitions",
          x = "K (number of clusters)",
          y = "Cross-entropy") +
@@ -431,6 +431,13 @@ final_table <- data.frame(
   q_proportions,
   stringsAsFactors = FALSE
 )
+
+##### Save outputs #####
+write.table(final_table, file = output_tabular,
+            sep = "\t", quote = FALSE, row.names = FALSE, col.names = TRUE)
+
+ggsave("outputs/barplot_t_struc.png", plot = p_struct,
+       width = 12, height = 8, dpi = 150, bg = "white")
 
 ##### Save outputs #####
 write.table(final_table, file = output_tabular,
