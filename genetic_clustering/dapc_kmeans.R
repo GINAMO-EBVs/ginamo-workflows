@@ -554,4 +554,3 @@ ggsave("outputs/output_posterior.png", plot = barplot_post,
 cat("  -> Posterior bar :", "outputs/output_posterior.png", "\n")
 
 cat("\n=== Analysis completed successfully ===\n")
-
