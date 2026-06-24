@@ -66,7 +66,7 @@
 
             #elif $data_conditional.input_format == "genepop" and $data_conditional.output_selection.output_format == "tabular":
                 '$data_conditional.output_selection.sep_char'
-
+            
             #elif $data_conditional.input_format == "genepop" and $data_conditional.output_selection.output_format == "bayescan":
                 '$data_conditional.output_selection.indpop'
                 '$data_conditional.output_selection.marker_type'
@@ -74,7 +74,7 @@
             
             #end if
         
-    ]]></command>
+        ]]></command>
 
     <inputs>
         <param name="input_file" type="data" format="vcf,tabular,txt" label="Upload your input file"/>
@@ -88,7 +88,7 @@
             
             <when value="vcf">
                 <conditional name="output_selection">
-                    <param name="output_format" type="select" label="Output format">
+                    <param name="output_format" type="select" label="Input format">
                         <option value="genepop">GENEPOP</option>
                     </param>
 
@@ -139,7 +139,7 @@
                         <option value="genepop">GENEPOP</option>
                     </param>
                     <when value="genepop">
-                        <param name="sep_char" type="select" label="Column separator in your input file">
+                        <param name="sep_char" type="select" label="">
                             <option value="TAB" selected="true">Tabulation</option>
                             <option value="COMMA">Comma (,)</option>
                             <option value="SEMICOLON">Semicolon (;)</option>
@@ -171,7 +171,6 @@
                             <option value="as the length of the PCR fragments">as the length of the PCR fragments</option>
                         </param>
                     </when>
-
                     <when value="tabular">
                         <param name="sep_char" type="select" label="Column separator for the output file">
                             <option value="TAB" selected="true">Tabulation</option>
@@ -237,7 +236,7 @@
         <param name="input_file" value="test_SSR_genepop.txt" ftype="txt"/>
         <param name="data_conditional|input_format" value="genepop"/>
         <param name="data_conditional|output_selection|output_format" value="bayescan"/>
-        <param name="data_conditional|output_selection|indpop" value="test_pop_ssr.txt"/>
+        <param name="data_conditional|output_selection|indpop" value="test_pop_SSR.txt"/>
         <param name="data_conditional|output_selection|marker_type" value="MICROSAT"/>
         <param name="data_conditional|output_selection|alleles_coded" value="as the length of the PCR fragments"/>
         <output name="convert_files" ftype="txt" count="1">
@@ -295,11 +294,11 @@ Usage
 =====
 As input, users provide a file in one of three accepted formats: VCF (Danecek *et al.* 2011), GENEPOP (Raymond & Rousset 1995) or Tabular (see **SSR Genotype file** format below). After selecting the desired output format, users can configure formatting paramters, most of which pre-set default values. 
 
-The tool supports four primary conversion :
+The tool supports three primary conversion :
 
 1. **VCF → GENEPOP**: The tool uses PGDSpider (Lischer & Excoffier 2012) to parse variant call data. It generates a GENEPOP file containing the list of loci followed by individual genotypes, formatted for use in population genetics software and R packages. Users must provide a population assignment file to define population groupings and specify ploidy as well as filtering options (minimum phred-scaled quality, minimum genotype quality, minimum read depth, INDEL inclusion, etc.).
 
-2. **Tabular (Microsatellites) → GENEPOP**: SSR genotype data provided in tabular format (see below) are converted into GENEPOP format directly (without PGDSpider). The user specifies the allele separator and the number of digits used to encode alleles. The tool parses individual genotypes per population and writes a standard GENEPOP file.
+2. **Tabular (Microsatellites) → GENEPOP**: SSR genotype data provided in tabular format are converted into GENEPOP format directly (without PGDSpider). The user specifies the allele separator and the number of digits used to encode alleles. The tool parses individual genotypes per population and writes a standard GENEPOP file.
 
 3. **GENEPOP → Tabular (Microsatellites)**: SSR genotype data provided in GENEPOP format are converted into tabular format (see below). The inverse conversion from point 2 is applied.
 
@@ -307,7 +306,7 @@ The tool supports four primary conversion :
 
 NB: PGDSpider is a powerful automated data conversion tool for population genetics and genomics (https://software.bioinformatics.unibe.ch/pgdspider/). It is used here for VCF → GENEPOP and GENEPOP → Geste/BayeScan conversions.
 
-**Tabular (Microsatellites) format :**
+**Tabular (Microsatellites) format:**
 
 ::
 
@@ -390,6 +389,3 @@ See also examples of VCF formats in :  https://samtools.github.io/hts-specs/VCFv
         </citation>
     </citations>
 </tool>
-
-
-
