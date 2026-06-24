@@ -37,6 +37,9 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
+##### Output directory #####
+readonly output_dir="vcf_directory"
+temp_dir="vcf_tmp_preprocessing"
 
 ##### Validate inputs #####
 # Ensure bcftools is available in PATH
@@ -62,7 +65,7 @@ add_missing_contigs(){
     local vcf_in="$1"
     local -n _out_var="$2"          # nameref: writes directly into the caller's variable
  
-    local vcf_out="${vcf_in%.vcf}_reheadered.vcf"
+    local vcf_out="${temp_dir}/input_reheadered.vcf"
  
     # If contig lines already present, return the original path unchanged
     if bcftools view -h "$vcf_in" 2>/dev/null | grep -q "^##contig="; then
@@ -82,7 +85,7 @@ add_missing_contigs(){
         awk '{print "##contig=<ID=" $1 ">"}' >> "$tmp_header"
     bcftools view -h "$vcf_in" 2>/dev/null | grep "^#CHROM"     >> "$tmp_header"
  
-    bcftools reheader -h "$tmp_header" -o "$vcf_out" "$vcf_in" 2>/dev/null
+    bcftools reheader -h "$tmp_header" "$vcf_in" > "$vcf_out"
     rm -f "$tmp_header"
  
     if [[ ! -s "$vcf_out" ]]; then
@@ -108,9 +111,6 @@ case "$action" in
     keep|remove) ;;
     *) die "Action must be 'keep' or 'remove', got: $action" ;;
 esac
-
-##### Output directory #####
-readonly output_dir="vcf_directory"
 
 ##### Build output filename #####
 name_without_ext="$(basename -- "$vcf_name")"
