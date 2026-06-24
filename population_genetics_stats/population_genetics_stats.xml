@@ -263,7 +263,7 @@
         </output>
     </test>
 
-    <!-- Test 2: SNP - Fst + bootstrap -->
+    <!-- Test 5: SNP - Fst + bootstrap -->
     <test expect_num_outputs="5">
         <conditional name="data_conditional">
             <param name="marker_type" value="SNP"/>
