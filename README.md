@@ -3,9 +3,9 @@ GINAMO (Genetic Indicators for NAture MOnitoring) focuses on developing best pra
 
 This repository contains the code for the tool developped by GINAMO, which are required to calculate genetic diversity indicators on Galaxy.
 
-These tool are integrated into Galaxy workflows on Galaxy Ecology Platform (https://ecology.usegalaxy.eu/) and on Galaxy Europe (https://usegalaxy.eu/). 
+These tools are integrated into Galaxy workflows on Galaxy Ecology Platform (https://ecology.usegalaxy.eu/) and on Galaxy Europe (https://usegalaxy.eu/). 
 
-This workflows have been designed for the following data type : 
+These workflows have been designed for the following data type : 
 -	SNPs on VCF file format
 -	SSR/microsatellites on « tabular » format
 -	Proxy data (*to be determined*)
