@@ -1,4 +1,4 @@
-# GINAMO : Galaxy tools and workflow
+# GINAMO : Galaxy tools and workflows
 GINAMO (Genetic Indicators for NAture MOnitoring) focuses on developing best practices for estimating effective population size from genetic data and evaluating genetic indicators based on non-genetic data. You can find more information about the GINAMO project here: https://ginamo.org/
 
 This repository contains the code for the tool developped by GINAMO, which are required to calculate genetic diversity indicators on Galaxy.
