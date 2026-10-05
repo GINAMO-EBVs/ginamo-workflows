@@ -581,4 +581,3 @@ done
 
 FINAL_OUTPUT="${vcf_dir}/${base_name}${SUFFIX}.vcf"
 cp "$CURRENT_VCF" "$FINAL_OUTPUT"
-
